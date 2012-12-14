@@ -76,6 +76,12 @@
 #include "net/uip-nd6.h"
 #include "net/uip-ds6.h"
 
+/*
+    this following file inclusion is for experimental
+    multicast implementation
+*/
+#include "net/multicast6/pim.h"
+
 #include <string.h>
 
 /*---------------------------------------------------------------------------*/
@@ -428,6 +434,10 @@ uip_init(void)
     uip_udp_conns[c].lport = 0;
   }
 #endif /* UIP_UDP */
+
+#if UIP_IPV6_MULTICAST
+    pim_init();
+#endif /* UIP_IPV6_MULTICAST */
 }
 /*---------------------------------------------------------------------------*/
 #if UIP_TCP && UIP_ACTIVE_OPEN
@@ -1142,6 +1152,21 @@ uip_process(uint8_t flag)
     }
   }
 
+/*
+  Here check if the dest addr is multicast. then let the pim data handler
+  handle it
+*/
+#if UIP_IPV6_MULTICAST
+    if(uip_is_addr_mcast_pim_ssm(&UIP_IP_BUF->destipaddr)) {
+        if(pim_data_in()) {
+            /* pim_data_in handled forwarding.. skip the processing in here */
+            UIP_IP_BUF->ttl = UIP_IP_BUF->ttl - 1;
+            goto send;
+        } else {
+            goto drop;
+        }
+    }
+#endif /* UIP_IPV6_MULTICAST */
 
   /* TBD Some Parameter problem messages */
   if(!uip_ds6_is_my_addr(&UIP_IP_BUF->destipaddr) &&
@@ -1408,6 +1433,11 @@ uip_process(uint8_t flag)
     uip_rpl_input();
     break;
 #endif /* UIP_CONF_IPV6_RPL */
+#if UIP_IPV6_MULTICAST
+    case ICMP6_MULTICAST:
+        pim_control_input();
+        break;
+#endif /*UIP_IPV6_MULTICAST */
     case ICMP6_ECHO_REQUEST:
       uip_icmp6_echo_request_input();
       break;

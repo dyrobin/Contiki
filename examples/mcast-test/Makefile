@@ -1,0 +1,14 @@
+CONTIKI_PROJECT = root-shell child-shell
+all: $(CONTIKI_PROJECT)
+
+APPS = serial-shell
+CONTIKI = ../..
+
+WITH_UIP6=1
+UIP_CONF_IPV6=1
+CFLAGS+= -DUIP_CONF_IPV6_RPL -DUIP_IPV6_MULTICAST
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
+CFLAGS += -ffunction-sections
+LDFLAGS += -Wl,--gc-sections,--undefined=_reset_vector__,--undefined=InterruptVectors,--undefined=_copy_data_init__,--undefined=_clear_bss_init__,--undefined=_end_of_init__
+
+include $(CONTIKI)/Makefile.include

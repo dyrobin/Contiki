@@ -1,0 +1,12 @@
+#ifndef __PROJECT_BASIC_SHELL_CONF_H__
+#define __PROJECT_BASIC_SHELL_CONF_H__
+
+#undef UIP_CONF_DS6_NBR_NBU
+#define UIP_CONF_DS6_NBR_NBU     10
+#undef UIP_CONF_DS6_ROUTE_NBU
+#define UIP_CONF_DS6_ROUTE_NBU   10
+
+#undef QUEUEBUF_CONF_NUM
+#define QUEUEBUF_CONF_NUM               4
+
+#endif

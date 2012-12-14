@@ -2095,6 +2095,13 @@ CCIF extern uip_lladdr_t uip_lladdr;
   (((a)->u8[0]) == 0xFF)
 
 /**
+ * is address a pim-ssm multicast address (FF3x::/32)
+ */
+#define uip_is_addr_mcast_pim_ssm(a) \
+  ((((a)->u8[0]) == 0xFF) && \
+  (((a)->u8[1] & 0xF0) == 0x30))
+
+/**
  * \brief is group-id of multicast address a
  * the all nodes group-id
  */

@@ -278,11 +278,15 @@ send_packet(mac_callback_t sent, void *ptr)
   static uint16_t seqno;
 
   packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, seqno++);
+  /* experimental changes done here for multicast to allow
+     queueing of  broadcast packets, so that there is better
+     reliability of broadcast packets being sent 
+  */  
   
   /* If the packet is a broadcast, do not allocate a queue
      entry. Instead, just send it out.  */
-  if(!rimeaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER),
-                   &rimeaddr_null)) {
+  /*if(!rimeaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER),
+                   &rimeaddr_null)) {*/
     const rimeaddr_t *addr = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
 
     /* Look for the neighbor entry */
@@ -352,10 +356,10 @@ send_packet(mac_callback_t sent, void *ptr)
       PRINTF("csma: could not allocate neighbor, dropping packet\n");
     }
     mac_call_sent_callback(sent, ptr, MAC_TX_ERR, 1);
-  } else {
+ /* } else {
     PRINTF("csma: send broadcast\n");
     NETSTACK_RDC.send(sent, ptr);
-  }
+  }*/
 }
 /*---------------------------------------------------------------------------*/
 static void

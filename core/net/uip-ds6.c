@@ -674,7 +674,11 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
   uint8_t n = 0;
   uip_ds6_addr_t *matchaddr = NULL;
 
+#if UIP_IPV6_MULTICAST
+  if((!uip_is_addr_link_local(dst) && !uip_is_addr_mcast(dst)) || (uip_is_addr_mcast_pim_ssm(dst))) {
+#else
   if(!uip_is_addr_link_local(dst) && !uip_is_addr_mcast(dst)) {
+#endif
     /* find longest match */
     for(locaddr = uip_ds6_if.addr_list;
         locaddr < uip_ds6_if.addr_list + UIP_DS6_ADDR_NB; locaddr++) {

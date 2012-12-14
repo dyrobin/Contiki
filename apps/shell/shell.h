@@ -382,6 +382,7 @@ struct shell_input {
 #include "shell-file.h"
 #include "shell-httpd.h"
 #include "shell-irc.h"
+#include "shell-mcast.h"
 #include "shell-memdebug.h"
 #include "shell-netfile.h"
 #include "shell-netperf.h"
