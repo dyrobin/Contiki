@@ -68,6 +68,7 @@
 #include "net/neighbor-info.h"
 #include "net/netstack.h"
 
+#define DEBUG_PREDICTION 1
 #define DEBUG 0
 #if DEBUG
 /* PRINTFI and PRINTFO are defined for input and output to debug one without changing the timing of the other */
@@ -1422,6 +1423,9 @@ output(uip_lladdr_t *localdest)
   }
   PRINTFO("sicslowpan output: header of len %d\n", rime_hdr_len);
 
+#if DEBUG_PREDICTION
+  printf("uip_len = %d\n", uip_len);
+#endif
   if(uip_len - uncomp_hdr_len > MAC_MAX_PAYLOAD - rime_hdr_len) {
 #if SICSLOWPAN_CONF_FRAG
     struct queuebuf *q;
@@ -1434,9 +1438,11 @@ output(uip_lladdr_t *localdest)
      */
 
     PRINTFO("Fragmentation sending packet len %d\n", uip_len);
+    printf("Fragmentation sending packet len %d\n", uip_len);
     
     /* Create 1st Fragment */
     PRINTFO("sicslowpan output: 1rst fragment ");
+    printf("sicslowpan output: 1rst fragment ");
 
     /* move HC1/HC06/IPv6 header */
     memmove(rime_ptr + SICSLOWPAN_FRAG1_HDR_LEN, rime_ptr, rime_hdr_len);
@@ -1457,12 +1463,14 @@ output(uip_lladdr_t *localdest)
     rime_hdr_len += SICSLOWPAN_FRAG1_HDR_LEN;
     rime_payload_len = (MAC_MAX_PAYLOAD - rime_hdr_len) & 0xf8;
     PRINTFO("(len %d, tag %d)\n", rime_payload_len, my_tag);
+    printf("(len %d, tag %d)\n", rime_payload_len, my_tag);
     memcpy(rime_ptr + rime_hdr_len,
            (uint8_t *)UIP_IP_BUF + uncomp_hdr_len, rime_payload_len);
     packetbuf_set_datalen(rime_payload_len + rime_hdr_len);
     q = queuebuf_new_from_packetbuf();
     if(q == NULL) {
       PRINTFO("could not allocate queuebuf for first fragment, dropping packet\n");
+      printf("could not allocate queuebuf for first fragment, dropping packet\n");
       return 0;
     }
     send_packet(&dest);
@@ -1475,6 +1483,7 @@ output(uip_lladdr_t *localdest)
        (last_tx_status == MAC_TX_ERR) ||
        (last_tx_status == MAC_TX_ERR_FATAL)) {
       PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+      printf("error in fragment tx, dropping subsequent fragments.\n");
       return 0;
     }
 
@@ -1494,6 +1503,7 @@ output(uip_lladdr_t *localdest)
     rime_payload_len = (MAC_MAX_PAYLOAD - rime_hdr_len) & 0xf8;
     while(processed_ip_out_len < uip_len) {
       PRINTFO("sicslowpan output: fragment ");
+      printf("sicslowpan output: fragment ");
       RIME_FRAG_PTR[RIME_FRAG_OFFSET] = processed_ip_out_len >> 3;
       
       /* Copy payload and send */
@@ -1503,12 +1513,15 @@ output(uip_lladdr_t *localdest)
       }
       PRINTFO("(offset %d, len %d, tag %d)\n",
              processed_ip_out_len >> 3, rime_payload_len, my_tag);
+      printf("(offset %d, len %d, tag %d)\n",
+             processed_ip_out_len >> 3, rime_payload_len, my_tag);
       memcpy(rime_ptr + rime_hdr_len,
              (uint8_t *)UIP_IP_BUF + processed_ip_out_len, rime_payload_len);
       packetbuf_set_datalen(rime_payload_len + rime_hdr_len);
       q = queuebuf_new_from_packetbuf();
       if(q == NULL) {
         PRINTFO("could not allocate queuebuf, dropping fragment\n");
+        printf("could not allocate queuebuf, dropping fragment\n");
         return 0;
       }
       send_packet(&dest);
@@ -1522,11 +1535,13 @@ output(uip_lladdr_t *localdest)
          (last_tx_status == MAC_TX_ERR) ||
          (last_tx_status == MAC_TX_ERR_FATAL)) {
         PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+        printf("error in fragment tx, dropping subsequent fragments.\n");
         return 0;
       }
     }
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
+    printf("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
     return 0;
 #endif /* SICSLOWPAN_CONF_FRAG */
   } else {
@@ -1588,12 +1603,15 @@ input(void)
   switch((GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0xf800) >> 8) {
     case SICSLOWPAN_DISPATCH_FRAG1:
       PRINTFI("sicslowpan input: FRAG1 ");
+      printf("sicslowpan input: FRAG1 ");
       frag_offset = 0;
 /*       frag_size = (uip_ntohs(RIME_FRAG_BUF->dispatch_size) & 0x07ff); */
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
 /*       frag_tag = uip_ntohs(RIME_FRAG_BUF->tag); */
       frag_tag = GET16(RIME_FRAG_PTR, RIME_FRAG_TAG);
       PRINTFI("size %d, tag %d, offset %d)\n",
+             frag_size, frag_tag, frag_offset);
+      printf("size %d, tag %d, offset %d)\n",
              frag_size, frag_tag, frag_offset);
       rime_hdr_len += SICSLOWPAN_FRAG1_HDR_LEN;
       /*      printf("frag1 %d %d\n", reass_tag, frag_tag);*/
@@ -1605,16 +1623,21 @@ input(void)
        * Offset is in units of 8 bytes
        */
       PRINTFI("sicslowpan input: FRAGN ");
+      printf("sicslowpan input: FRAGN ");
       frag_offset = RIME_FRAG_PTR[RIME_FRAG_OFFSET];
       frag_tag = GET16(RIME_FRAG_PTR, RIME_FRAG_TAG);
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
       PRINTFI("size %d, tag %d, offset %d)\n",
+             frag_size, frag_tag, frag_offset);
+      printf("size %d, tag %d, offset %d)\n",
              frag_size, frag_tag, frag_offset);
       rime_hdr_len += SICSLOWPAN_FRAGN_HDR_LEN;
 
       /* If this is the last fragment, we may shave off any extrenous
          bytes at the end. We must be liberal in what we accept. */
       PRINTFI("last_fragment?: processed_ip_in_len %d rime_payload_len %d frag_size %d\n",
+              processed_ip_in_len, packetbuf_datalen() - rime_hdr_len, frag_size);
+      printf("last_fragment?: processed_ip_in_len %d rime_payload_len %d frag_size %d\n",
               processed_ip_in_len, packetbuf_datalen() - rime_hdr_len, frag_size);
 
       if(processed_ip_in_len + packetbuf_datalen() - rime_hdr_len >= frag_size) {
