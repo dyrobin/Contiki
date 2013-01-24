@@ -55,6 +55,9 @@
 
 #include <stdio.h>
 
+#define TX_SENT 0
+#define TX_DROP 1
+
 #define DEBUG 0
 #if DEBUG
 #include <stdio.h>
@@ -148,6 +151,8 @@ transmit_packet_list(void *ptr)
     if(q != NULL) {
       PRINTF("csma: preparing number %d %p, queue len %d\n", n->transmissions, q,
           list_length(n->queued_packet_list));
+      //printf("csma: preparing number %d %p, queue len %d\n", n->transmissions, q,
+        //  list_length(n->queued_packet_list));
       /* Send packets in the neighbor's list */
       NETSTACK_RDC.send_list(packet_sent, n, q);
     }
@@ -155,7 +160,7 @@ transmit_packet_list(void *ptr)
 }
 /*---------------------------------------------------------------------------*/
 static void
-free_first_packet(struct neighbor_queue *n)
+free_first_packet(struct neighbor_queue *n, uint16_t success)
 {
   struct rdc_buf_list *q = list_head(n->queued_packet_list);
   if(q != NULL) {
@@ -166,6 +171,13 @@ free_first_packet(struct neighbor_queue *n)
     memb_free(&packet_memb, q);
     PRINTF("csma: free_queued_packet, queue length %d\n",
         list_length(n->queued_packet_list));
+    if(success == TX_SENT) {
+        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, deferrals = %d\n\n", 
+            n->transmissions, n->collisions, n->deferrals);
+    } else {
+        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, deferrals = %d\n\n", 
+            n->transmissions, n->collisions, n->deferrals);
+    }
     if(list_head(n->queued_packet_list)) {
       /* There is a next packet. We reset current tx information */
       n->transmissions = 0;
@@ -220,12 +232,15 @@ packet_sent(void *ptr, int status, int num_transmissions)
     switch(status) {
     case MAC_TX_COLLISION:
       PRINTF("csma: rexmit collision %d\n", n->transmissions);
+      //printf("csma: rexmit collision %d\n", n->transmissions);
       break;
     case MAC_TX_NOACK:
       PRINTF("csma: rexmit noack %d\n", n->transmissions);
+      //printf("csma: rexmit noack %d\n", n->transmissions);
       break;
     default:
       PRINTF("csma: rexmit err %d, %d\n", status, n->transmissions);
+      //printf("csma: rexmit err %d, %d\n", status, n->transmissions);
     }
 
     /* The retransmission time must be proportional to the channel
@@ -248,6 +263,7 @@ packet_sent(void *ptr, int status, int num_transmissions)
 
     if(n->transmissions < metadata->max_transmissions) {
       PRINTF("csma: retransmitting with time %lu %p\n", time, q);
+      //printf("csma: retransmitting with time %lu %p\n", time, q);
       ctimer_set(&n->transmit_timer, time,
                  transmit_packet_list, n);
       /* This is needed to correctly attribute energy that we spent
@@ -256,16 +272,20 @@ packet_sent(void *ptr, int status, int num_transmissions)
     } else {
       PRINTF("csma: drop with status %d after %d transmissions, %d collisions\n",
              status, n->transmissions, n->collisions);
-      free_first_packet(n);
+      //printf("csma: drop with status %d after %d transmissions, %d collisions\n",
+        //     status, n->transmissions, n->collisions);
+      free_first_packet(n, TX_DROP);
       mac_call_sent_callback(sent, cptr, status, num_tx);
     }
   } else {
     if(status == MAC_TX_OK) {
       PRINTF("csma: rexmit ok %d\n", n->transmissions);
+      //printf("csma: rexmit ok %d\n", n->transmissions);
     } else {
       PRINTF("csma: rexmit failed %d: %d\n", n->transmissions, status);
+      //printf("csma: rexmit failed %d: %d\n", n->transmissions, status);
     }
-    free_first_packet(n);
+    free_first_packet(n, TX_SENT);
     mac_call_sent_callback(sent, cptr, status, num_tx);
   }
 }

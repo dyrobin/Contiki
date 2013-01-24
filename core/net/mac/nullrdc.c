@@ -43,6 +43,9 @@
 #include "net/queuebuf.h"
 #include "net/netstack.h"
 #include <string.h>
+#include "sys/rtimer.h"
+#include "sys/clock.h"
+#include "sys/timer.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -137,6 +140,8 @@ send_packet(mac_callback_t sent, void *ptr)
       ret = MAC_TX_COLLISION;
 
     } else {
+      clock_time_t tx_time;
+      tx_time = clock_time();
       switch(NETSTACK_RADIO.transmit(packetbuf_totlen())) {
       case RADIO_TX_OK:
         if(is_broadcast) {
@@ -150,6 +155,7 @@ send_packet(mac_callback_t sent, void *ptr)
           while(RTIMER_CLOCK_LT(RTIMER_NOW(), wt + ACK_WAIT_TIME));
 
           ret = MAC_TX_NOACK;
+          printf("RDC: TX_NOACK till now\n");
           if(NETSTACK_RADIO.receiving_packet() ||
              NETSTACK_RADIO.pending_packet() ||
              NETSTACK_RADIO.channel_clear() == 0) {
@@ -166,6 +172,7 @@ send_packet(mac_callback_t sent, void *ptr)
               if(len == ACK_LEN && ackbuf[2] == dsn) {
                 /* Ack received */
                 ret = MAC_TX_OK;
+                printf("RDC: TX_OK time = %lu \n", clock_time() - tx_time);
               } else {
                 /* Not an ack or ack not for us: collision */
                 ret = MAC_TX_COLLISION;
@@ -184,16 +191,22 @@ send_packet(mac_callback_t sent, void *ptr)
     }
 
 #else /* ! NULLRDC_802154_AUTOACK */
+      
+    clock_time_t tx_time;
+    tx_time = clock_time();
 
     switch(NETSTACK_RADIO.send(packetbuf_hdrptr(), packetbuf_totlen())) {
     case RADIO_TX_OK:
       ret = MAC_TX_OK;
+      //printf("RDC: TX_OK time = %u\n", (cur < tx_time)? (max_time - tx_time + cur): (cur - tx_time)); 
+      printf("RDC: %u and %u TX_OK time = %u\n", clock_time(), tx_time, clock_time() - tx_time);
       break;
     case RADIO_TX_COLLISION:
       ret = MAC_TX_COLLISION;
       break;
     case RADIO_TX_NOACK:
       ret = MAC_TX_NOACK;
+      printf("RDC: TX_NOACK\n");
       break;
     default:
       ret = MAC_TX_ERR;

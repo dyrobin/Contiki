@@ -4,8 +4,10 @@
 #include "net/uip.h"
 #include "net/uip-ds6.h"
 #include "net/uip-debug.h"
+#include "net/uip-udp-packet.h"
 #include "net/rpl/rpl.h"
 #include "dev/serial-line.h"
+#include "dev/leds.h"
 #if CONTIKI_TARGET_Z1
 #include "dev/uart0.h"
 #else
@@ -24,14 +26,26 @@ AUTOSTART_PROCESSES(&root_shell_process);
 static void
 tcpip_handler(void)
 {
+    static struct uip_udp_conn *conn;
+    char buf[16];
     char *appdata;
 
     if(uip_newdata()) {
-        appdata = (char *)uip_appdata;
-        appdata[uip_datalen()] = 0;
-        printf("data recieved %s from ", appdata);
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf("\n");
+        if(uip_datalen() > 4) {        
+            appdata = (char *)uip_appdata;
+            printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
+            //printf("data recieved of size %d from ", uip_datalen());
+            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+            printf("\n");
+            leds_toggle(LEDS_GREEN);
+//            conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
+//            sprintf(buf, "OK");
+//            uip_udp_packet_send(conn, buf, strlen(buf));
+        } else if(uip_datalen() == 2) {
+            printf("OK received\n");
+        } else {
+            printf("Weird data\n");
+        }
     }
 }
 
@@ -58,6 +72,34 @@ set_global_address(void)
 
   return &ipaddr;
 }
+
+/*static void
+create_route(void)
+{
+    uip_ipaddr_t dest;
+    uip_ipaddr_t next;
+    uip_ds6_route_t *r;
+
+    uip_ip6addr(&dest, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x0003);
+    uip_ip6addr(&next, 0xaaaa, 0, 0, 0, 0x212, 0x7402, 0x2, 0x202);
+
+    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+        uip_debug_ipaddr_print(&r->ipaddr);
+        printf(" via ");
+        uip_debug_ipaddr_print(&r->nexthop);
+        printf("\n");
+    }
+    
+//    printf("adding route\n");
+    uip_ds6_route_add(&dest, 128, &next, 0);
+    
+    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+        uip_debug_ipaddr_print(&r->ipaddr);
+        printf(" via ");
+        uip_debug_ipaddr_print(&r->nexthop);
+        printf("\n");
+    }
+}*/
 
 static void
 create_rpl_dag(uip_ipaddr_t *ipaddr)
@@ -97,6 +139,8 @@ PROCESS_THREAD(root_shell_process, ev, data)
     shell_prediction_init();
 
     ipaddr = set_global_address();
+
+//    create_route();
 
     create_rpl_dag(ipaddr);
 

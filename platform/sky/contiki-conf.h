@@ -9,12 +9,14 @@
 #include "platform-conf.h"
 #endif /* PLATFORM_CONF_H */
 
+#define NULLRDC_802154_AUTOACK           1
+
 #ifndef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC     csma_driver
 #endif /* NETSTACK_CONF_MAC */
 
 #ifndef NETSTACK_CONF_RDC
-#define NETSTACK_CONF_RDC     contikimac_driver
+#define NETSTACK_CONF_RDC     nullrdc_driver
 #endif /* NETSTACK_CONF_RDC */
 
 #ifndef NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
@@ -160,7 +162,7 @@
 #define UIP_CONF_ND6_MAX_DEFROUTERS     2
 #define UIP_CONF_IP_FORWARD             0
 #ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE		240
+#define UIP_CONF_BUFFER_SIZE		500
 #endif
 
 #define SICSLOWPAN_CONF_COMPRESSION_IPV6        0
@@ -169,7 +171,7 @@
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
 #ifndef SICSLOWPAN_CONF_FRAG
 #define SICSLOWPAN_CONF_FRAG                    1
-#define SICSLOWPAN_CONF_MAXAGE                  8
+#define SICSLOWPAN_CONF_MAXAGE                  48
 #endif /* SICSLOWPAN_CONF_FRAG */
 #define SICSLOWPAN_CONF_CONVENTIONAL_MAC	1
 #define SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS       2

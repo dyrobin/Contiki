@@ -42,7 +42,7 @@
 /* Network setup for IPv6 */
 #define NETSTACK_CONF_NETWORK sicslowpan_driver
 #define NETSTACK_CONF_MAC     csma_driver
-#define NETSTACK_CONF_RDC     contikimac_driver
+#define NETSTACK_CONF_RDC     nullrdc_driver
 #define NETSTACK_CONF_RADIO   cc2420_driver
 #define NETSTACK_CONF_FRAMER  framer_802154
 
@@ -54,12 +54,13 @@
 #define CONTIKIMAC_CONF_WITH_CONTIKIMAC_HEADER 0
 
 #define CC2420_CONF_AUTOACK              1
+#define NULLRDC_802154_AUTOACK           1
 #define NETSTACK_RDC_CHANNEL_CHECK_RATE  8
 #define RIME_CONF_NO_POLITE_ANNOUCEMENTS 0
 #define CXMAC_CONF_ANNOUNCEMENTS         0
 #define XMAC_CONF_ANNOUNCEMENTS          0
 
-#define QUEUEBUF_CONF_NUM                4 
+#define QUEUEBUF_CONF_NUM                8
 
 
 #else /* WITH_UIP6 */
@@ -134,9 +135,9 @@
 #define UIP_CONF_IPV6_RPL               1
 
 /* Handle 10 neighbors */
-#define UIP_CONF_DS6_NBR_NBU     15
+#define UIP_CONF_DS6_NBR_NBU     6
 /* Handle 10 routes    */
-#define UIP_CONF_DS6_ROUTE_NBU   15
+#define UIP_CONF_DS6_ROUTE_NBU   6
 
 #define UIP_CONF_ND6_SEND_RA		0
 #define UIP_CONF_ND6_REACHABLE_TIME     600000
@@ -151,7 +152,7 @@
 #define UIP_CONF_ND6_MAX_NEIGHBORS      4
 #define UIP_CONF_ND6_MAX_DEFROUTERS     2
 #define UIP_CONF_IP_FORWARD             0
-#define UIP_CONF_BUFFER_SIZE		240
+#define UIP_CONF_BUFFER_SIZE		500
 
 #define SICSLOWPAN_CONF_COMPRESSION_IPV6        0
 #define SICSLOWPAN_CONF_COMPRESSION_HC1         1
@@ -159,7 +160,7 @@
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
 #ifndef SICSLOWPAN_CONF_FRAG
 #define SICSLOWPAN_CONF_FRAG                    1
-#define SICSLOWPAN_CONF_MAXAGE                  8
+#define SICSLOWPAN_CONF_MAXAGE                  48
 #endif /* SICSLOWPAN_CONF_FRAG */
 #define SICSLOWPAN_CONF_CONVENTIONAL_MAC	1
 #define SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS       2
@@ -186,7 +187,6 @@
 #define UIP_CONF_LOGGING         0
 
 #define UIP_CONF_TCP_SPLIT       0
-
 
 #ifdef PROJECT_CONF_H
 #include PROJECT_CONF_H
