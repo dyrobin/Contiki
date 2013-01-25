@@ -1423,9 +1423,6 @@ output(uip_lladdr_t *localdest)
   }
   PRINTFO("sicslowpan output: header of len %d\n", rime_hdr_len);
 
-#if DEBUG_PREDICTION
-  printf("uip_len = %d\n", uip_len);
-#endif
   if(uip_len - uncomp_hdr_len > MAC_MAX_PAYLOAD - rime_hdr_len) {
 #if SICSLOWPAN_CONF_FRAG
     struct queuebuf *q;
@@ -1438,11 +1435,10 @@ output(uip_lladdr_t *localdest)
      */
 
     PRINTFO("Fragmentation sending packet len %d\n", uip_len);
-    printf("Fragmentation sending packet len %d\n", uip_len);
+    printf("6lowpan: Fragmentation sending packet len %d\n", uip_len);
     
     /* Create 1st Fragment */
     PRINTFO("sicslowpan output: 1rst fragment ");
-    //printf("sicslowpan output: 1rst fragment ");
 
     /* move HC1/HC06/IPv6 header */
     memmove(rime_ptr + SICSLOWPAN_FRAG1_HDR_LEN, rime_ptr, rime_hdr_len);
@@ -1484,7 +1480,7 @@ output(uip_lladdr_t *localdest)
        (last_tx_status == MAC_TX_ERR) ||
        (last_tx_status == MAC_TX_ERR_FATAL)) {
       PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-      printf("error in fragment tx, dropping subsequent fragments. error num: %d\n", last_tx_status);
+      printf("6lowpan: error in fragment tx\n");
       return 0;
     }
 
@@ -1537,13 +1533,12 @@ output(uip_lladdr_t *localdest)
          (last_tx_status == MAC_TX_ERR) ||
          (last_tx_status == MAC_TX_ERR_FATAL)) {
         PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-        printf("error in fragment tx, dropping subsequent fragments. error num %d\n", last_tx_status);
+        printf("6lowpan: error in fragment tx\n");
         return 0;
       }
     }
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
-    printf("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
     return 0;
 #endif /* SICSLOWPAN_CONF_FRAG */
   } else {
@@ -1599,7 +1594,7 @@ input(void)
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
     if (frag_flag) {   
-        printf("REASSEMBLY failed\n");
+        printf("6lowpan: REASSEMBLY FAILED\n");
         frag_flag = 0;
     }
   }
@@ -1618,8 +1613,7 @@ input(void)
       frag_tag = GET16(RIME_FRAG_PTR, RIME_FRAG_TAG);
       PRINTFI("size %d, tag %d, offset %d)\n",
              frag_size, frag_tag, frag_offset);
-      //printf("size %d, tag %d, offset %d)\n",
-        //     frag_size, frag_tag, frag_offset);
+      printf("6lowpan: input F1 size %d, tag %d, offset %d)\n", frag_size, frag_tag, frag_offset);
       rime_hdr_len += SICSLOWPAN_FRAG1_HDR_LEN;
       /*      printf("frag1 %d %d\n", reass_tag, frag_tag);*/
       first_fragment = 1;
@@ -1636,8 +1630,7 @@ input(void)
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
       PRINTFI("size %d, tag %d, offset %d)\n",
              frag_size, frag_tag, frag_offset);
-      //printf("size %d, tag %d, offset %d)\n",
-        //     frag_size, frag_tag, frag_offset);
+      printf("6lowpan: input FN size %d, tag %d, offset %d)\n", frag_size, frag_tag, frag_offset);
       rime_hdr_len += SICSLOWPAN_FRAGN_HDR_LEN;
 
       /* If this is the last fragment, we may shave off any extrenous
@@ -1668,6 +1661,8 @@ input(void)
        * being reassembled or the packet is not a fragment.
        */
       PRINTFI("sicslowpan input: Dropping 6lowpan packet that is not a fragment of the packet currently being reassembled\n");
+
+      printf("6lowpan: Dropping packet out of seq\n");
       return;
     }
   } else {
@@ -1680,8 +1675,6 @@ input(void)
       reass_tag = frag_tag;
       timer_set(&reass_timer, SICSLOWPAN_REASS_MAXAGE * CLOCK_SECOND / 16);
       PRINTFI("sicslowpan input: INIT FRAGMENTATION (len %d, tag %d)\n",
-             sicslowpan_len, reass_tag);
-      printf("sicslowpan input: INIT FRAGMENTATION (len %d, tag %d)\n",
              sicslowpan_len, reass_tag);
       frag_flag = 1;
       rimeaddr_copy(&frag_sender, packetbuf_addr(PACKETBUF_ADDR_SENDER));
@@ -1723,8 +1716,6 @@ input(void)
       /* unknown header */
       PRINTFI("sicslowpan input: unknown dispatch: %u\n",
              RIME_HC1_PTR[RIME_HC1_DISPATCH]);
-      printf("sicslowpan input: unknown dispatch: %u\n",
-             RIME_HC1_PTR[RIME_HC1_DISPATCH]);
       return;
   }
    
@@ -1741,7 +1732,6 @@ input(void)
    */
   if(packetbuf_datalen() < rime_hdr_len) {
     PRINTF("SICSLOWPAN: packet dropped due to header > total packet\n");
-    printf("SICSLOWPAN: packet dropped due to header > total packet\n");
     return;
   }
   rime_payload_len = packetbuf_datalen() - rime_hdr_len;
@@ -1782,8 +1772,6 @@ input(void)
   if(processed_ip_in_len == 0 || (processed_ip_in_len == sicslowpan_len)) {
     PRINTFI("sicslowpan input: IP packet ready (length %d)\n",
            sicslowpan_len);
-    printf("sicslowpan input: IP packet ready (length %d)\n",
-           sicslowpan_len);
     memcpy((uint8_t *)UIP_IP_BUF, (uint8_t *)SICSLOWPAN_IP_BUF, sicslowpan_len);
     uip_len = sicslowpan_len;
     sicslowpan_len = 0;
@@ -1802,6 +1790,24 @@ input(void)
       PRINTF("\n");
     }
 #endif
+/* for testing purpose */
+ {   
+    struct uip_udp_hdr *udp_buf = NULL;
+    if(UIP_IP_BUF->proto == UIP_PROTO_UDP) {
+      udp_buf = UIP_UDP_BUF;
+    } else if (UIP_IP_BUF->proto == UIP_PROTO_HBHO){
+      struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
+      if (hbho_buf->next == UIP_PROTO_UDP) {
+        udp_buf =(struct uip_udp_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN + (hbho_buf->len << 3) + 8];
+      }
+    }
+    if (udp_buf && udp_buf->destport == UIP_HTONS(1729)) {
+      char *payload = ((char *)udp_buf) + 8;
+      printf("packet no: %c%c%c%c received of %d length\n\n", payload[0], payload[1], payload[2], payload[3], uip_len);
+    } 
+  }
+/*end of testing code*/
+
 
 #if SICSLOWPAN_CONF_NEIGHBOR_INFO
     neighbor_info_packet_received();

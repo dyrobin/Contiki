@@ -172,10 +172,10 @@ free_first_packet(struct neighbor_queue *n, uint16_t success)
     PRINTF("csma: free_queued_packet, queue length %d\n",
         list_length(n->queued_packet_list));
     if(success == TX_SENT) {
-        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, deferrals = %d\n\n", 
+        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, deferrals = %d\n", 
             n->transmissions, n->collisions, n->deferrals);
     } else {
-        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, deferrals = %d\n\n", 
+        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, deferrals = %d\n", 
             n->transmissions, n->collisions, n->deferrals);
     }
     if(list_head(n->queued_packet_list)) {

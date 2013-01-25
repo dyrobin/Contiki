@@ -33,10 +33,10 @@ tcpip_handler(void)
     if(uip_newdata()) {
         if(uip_datalen() > 4) {        
             appdata = (char *)uip_appdata;
-            printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
+            //printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
             //printf("data recieved of size %d from ", uip_datalen());
-            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-            printf("\n");
+            //uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+            //printf("\n");
             leds_toggle(LEDS_GREEN);
 //            conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
 //            sprintf(buf, "OK");

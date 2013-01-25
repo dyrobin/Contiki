@@ -45,16 +45,18 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     static struct timer et;
     const char *nextptr;
     static struct uip_udp_conn *conn;
-    uint16_t s;
+    uint16_t s, opt;
     static uint16_t size,sec;
     static uint16_t i,j;
 
     PROCESS_BEGIN();
     
     s = shell_strtolong(data, &nextptr);
+   // opt = shell_strtolong(nextptr, &nextptr);
     size = shell_strtolong(nextptr, &nextptr);
     sec = shell_strtolong(nextptr, &nextptr);
-   //set_s_addr(s, opt, &dest_addr); 
+
+    //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
      
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
@@ -87,8 +89,8 @@ PROCESS_THREAD(shell_check_path_process, ev, data)
     PROCESS_BEGIN();
     
     s = shell_strtolong(data, &nextptr);
-   //opt = shell_strtolong(nextptr, &nextptr);
-   //set_s_addr(s, opt, &dest_addr); 
+    //opt = shell_strtolong(nextptr, &nextptr);
+    //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
      
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
