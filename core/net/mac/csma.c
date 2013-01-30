@@ -93,6 +93,7 @@ struct neighbor_queue {
   struct ctimer transmit_timer;
   uint8_t transmissions;
   uint8_t collisions, deferrals;
+  clock_time_t tx_time;
   LIST_STRUCT(queued_packet_list);
 };
 
@@ -154,6 +155,8 @@ transmit_packet_list(void *ptr)
       //printf("csma: preparing number %d %p, queue len %d\n", n->transmissions, q,
         //  list_length(n->queued_packet_list));
       /* Send packets in the neighbor's list */
+      
+      if(n->transmissions == 0) n->tx_time = clock_time();
       NETSTACK_RDC.send_list(packet_sent, n, q);
     }
   }
@@ -172,11 +175,11 @@ free_first_packet(struct neighbor_queue *n, uint16_t success)
     PRINTF("csma: free_queued_packet, queue length %d\n",
         list_length(n->queued_packet_list));
     if(success == TX_SENT) {
-        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, deferrals = %d\n", 
-            n->transmissions, n->collisions, n->deferrals);
+        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, tx_time = %u\n", 
+            n->transmissions, n->collisions, clock_time() - n->tx_time);
     } else {
-        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, deferrals = %d\n", 
-            n->transmissions, n->collisions, n->deferrals);
+        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, tx_time = %u\n", 
+            n->transmissions, n->collisions, clock_time() - n->tx_time);
     }
     if(list_head(n->queued_packet_list)) {
       /* There is a next packet. We reset current tx information */
@@ -358,9 +361,11 @@ send_packet(mac_callback_t sent, void *ptr)
           }
           memb_free(&metadata_memb, q->ptr);
           PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+          printf("CSMA: Frame DROPPED due to not allocate queuebuf\n");
         }
         memb_free(&packet_memb, q);
         PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+        printf("CSMA: Frame DROPPED due to not allocate queuebuf\n");
       }
       /* The packet allocation failed. Remove and free neighbor entry if empty. */
       if(list_length(n->queued_packet_list) == 0) {
@@ -368,8 +373,10 @@ send_packet(mac_callback_t sent, void *ptr)
         memb_free(&neighbor_memb, n);
       }
       PRINTF("csma: could not allocate packet, dropping packet\n");
+      printf("CSMA: Frame DROPPED due to not allocate packet\n");
     } else {
       PRINTF("csma: could not allocate neighbor, dropping packet\n");
+      printf("CSMA: Frame DROPPED due to not allocate neighbor\n");
     }
     mac_call_sent_callback(sent, ptr, MAC_TX_ERR, 1);
   } else {

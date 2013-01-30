@@ -140,8 +140,6 @@ send_packet(mac_callback_t sent, void *ptr)
       ret = MAC_TX_COLLISION;
 
     } else {
-      clock_time_t tx_time;
-      tx_time = clock_time();
       switch(NETSTACK_RADIO.transmit(packetbuf_totlen())) {
       case RADIO_TX_OK:
         if(is_broadcast) {
