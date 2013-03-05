@@ -354,10 +354,6 @@ void
 mcast6_update_send(uip_ipaddr_t *sender_addr, uip_ipaddr_t *group_addr,
                    uip_ipaddr_t *dest_addr)
 {
-    /*TODO
-     * similar to above two function copy S and G to UIP_ICMP_PAYLOAD and 
-     * use uip_icmp6_send to send the packet to nexthop
-     */
     unsigned char *buffer;
     int pos;
 

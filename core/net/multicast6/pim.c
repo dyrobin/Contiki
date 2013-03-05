@@ -1,16 +1,10 @@
-//#include "net/tcpip.h"
-//#include "net/uip.h"
 #include "contiki-net.h"
 #include "net/uip-ds6.h"
-//#include "net/uip-nd6.h"
 #include "net/uip-icmp6.h"
-//#include "net/packetbuf.h"
-//#include "lib/memb.h"
 #include "pim-control.h"
 #include "pim.h"
 #include "sys/clock.h"
 
-//#include <limits.h>
 #include <string.h>
 
 #define DEBUG DEBUG_NONE
@@ -94,8 +88,8 @@ check_route_changed(uip_mcast6_route_t *entry)
     new = uip_ds6_nbr_lookup(nexthop);
     old = uip_ds6_nbr_lookup(&entry->pref_parent);
     if(memcmp(new->lladdr.addr, old->lladdr.addr, UIP_LLADDR_LEN) != 0) {
-        uip_debug_ipaddr_print(nexthop);
-        printf(" new parent this is \n");
+        PRINT6ADDR(nexthop);
+        PRINTF(" is the new parent \n");
         return 1;
     } else {
         return 0;
@@ -121,7 +115,7 @@ handle_mcast_timer()
         entry < end; ++entry) {
             if(entry->used) {
                 PRINT6ADDR(&entry->pref_parent);
-                PRINTF(" this is P for now\n", entry->used);
+                PRINTF(" is P for now\n", entry->used);
                 if(check_route_changed(entry)) {
                     PRINTF("route changed, has to send join\n");
                     uip_ipaddr_copy(&sender_addr, &entry->sender_addr);
@@ -143,9 +137,9 @@ handle_mcast_timer()
                     entry->used = 0;
                     } //hack ends
                 } else {
-                	if(uip_ds6_is_my_addr(&entry->sender_addr) == 0) {
-                		mcast6_update_send(&entry->sender_addr, &entry->mcast_grp, 
-                			&entry->pref_parent);
+                    if(uip_ds6_is_my_addr(&entry->sender_addr) == 0) {
+                        mcast6_update_send(&entry->sender_addr, &entry->mcast_grp, 
+                            &entry->pref_parent);
                     }
                 }
                 //again send update if used=2
