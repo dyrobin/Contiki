@@ -143,8 +143,10 @@ handle_mcast_timer()
                     entry->used = 0;
                     } //hack ends
                 } else {
-                    mcast6_update_send(&entry->sender_addr, &entry->mcast_grp, 
-                                   &entry->pref_parent);
+					if(uip_ds6_is_my_addr(&entry->sender_addr) == 0) {
+						mcast6_update_send(&entry->sender_addr, &entry->mcast_grp, 
+								&entry->pref_parent);
+                    }
                 }
                 //again send update if used=2
                 if(entry->mld_flag) {
