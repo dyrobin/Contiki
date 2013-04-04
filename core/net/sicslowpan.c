@@ -1446,7 +1446,7 @@ output(uip_lladdr_t *localdest)
     /* Create 1st Fragment */
     num_frag++;
     PRINTFO("sicslowpan output: 1rst fragment ");
-    printf("sicslowpan: ASSEM F1\n");
+    //printf("sicslowpan: ASSEM F1\n");
 
     /* move HC1/HC06/IPv6 header */
     memmove(rime_ptr + SICSLOWPAN_FRAG1_HDR_LEN, rime_ptr, rime_hdr_len);
@@ -1489,7 +1489,7 @@ output(uip_lladdr_t *localdest)
       PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
       return 0;
     }
-    printf("sicslowpan: ASSEM F1 DONE\n");
+    //printf("sicslowpan: ASSEM F1 DONE\n");
 
     /* set processed_ip_out_len to what we already sent from the IP payload*/
     processed_ip_out_len = rime_payload_len + uncomp_hdr_len;
@@ -1509,7 +1509,7 @@ output(uip_lladdr_t *localdest)
       num_frag++;
       PRINTFO("sicslowpan output: fragment ");
       //printf("sicslowpan output: fragment ");
-      printf("sicslowpan: ASSEM FN\n");
+      //printf("sicslowpan: ASSEM FN\n");
       RIME_FRAG_PTR[RIME_FRAG_OFFSET] = processed_ip_out_len >> 3;
       
       /* Copy payload and send */
@@ -1543,7 +1543,7 @@ output(uip_lladdr_t *localdest)
         PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
         return 0;
       }
-      printf("sicslowpan: ASSEM FN DONE\n");
+      //printf("sicslowpan: ASSEM FN DONE\n");
     }
     printf("sicslowpan: num of fragments = %u\n", num_frag);
 #else /* SICSLOWPAN_CONF_FRAG */
@@ -1587,6 +1587,8 @@ input(void)
   /* tag of the fragment */
   uint16_t frag_tag = 0;
   uint8_t first_fragment = 0, last_fragment = 0;
+  clock_time_t ctime;
+  unsigned short ftime;
 #endif /*SICSLOWPAN_CONF_FRAG*/
 
   static uint8_t  frag_flag = 0;
@@ -1614,7 +1616,10 @@ input(void)
   switch((GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0xf800) >> 8) {
     case SICSLOWPAN_DISPATCH_FRAG1:
       PRINTFI("sicslowpan input: FRAG1 ");
-      printf("sicslowpan: REASS F1\n");
+      ctime = clock_time();
+      ftime = clock_fine();
+      printf("sicslowpan: REASS START %u ", ctime);
+      printf("%u \n", ftime);
       frag_offset = 0;
 /*       frag_size = (uip_ntohs(RIME_FRAG_BUF->dispatch_size) & 0x07ff); */
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
@@ -1632,7 +1637,7 @@ input(void)
        * Offset is in units of 8 bytes
        */
       PRINTFI("sicslowpan input: FRAGN ");
-      printf("sicslowpan: REASS FN\n");
+      //printf("sicslowpan: REASS FN\n");
       frag_offset = RIME_FRAG_PTR[RIME_FRAG_OFFSET];
       frag_tag = GET16(RIME_FRAG_PTR, RIME_FRAG_TAG);
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
@@ -1691,7 +1696,7 @@ input(void)
 
   if(rime_hdr_len == SICSLOWPAN_FRAGN_HDR_LEN) {
     /* this is a FRAGN, skip the header compression dispatch section */
-    fragn_flag = 1;
+    fragn_flag++;
     goto copypayload;
   }
 #endif /* SICSLOWPAN_CONF_FRAG */
@@ -1770,7 +1775,7 @@ input(void)
     sicslowpan_len = rime_payload_len + uncomp_hdr_len;
 #if SICSLOWPAN_CONF_FRAG
   }
-
+/*
   if(frag_flag) {
     if(fragn_flag) {
         printf("sicslowpan: REASS FN DONE\n");
@@ -1778,6 +1783,7 @@ input(void)
         printf("sicslowpan: REASS F1 DONE\n");
     }
   }
+*/
   /*
    * If we have a full IP packet in sicslowpan_buf, deliver it to
    * the IP stack
@@ -1792,7 +1798,11 @@ input(void)
     //printf("sicslowpan input: IP packet ready (length %d)\n",
     //       sicslowpan_len);
     if(frag_flag) {
-        printf("sicslowpan: REASS DONE\n");
+        ctime = clock_time();
+        ftime = clock_fine();
+        printf("sicslowpan: REASS END %u ", ctime);
+        printf("%u N ", ftime); 
+        printf("%u\n", fragn_flag + frag_flag);
     }
     memcpy((uint8_t *)UIP_IP_BUF, (uint8_t *)SICSLOWPAN_IP_BUF, sicslowpan_len);
     uip_len = sicslowpan_len;

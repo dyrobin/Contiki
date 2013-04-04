@@ -64,7 +64,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     static struct uip_udp_conn *server_conn;
     uint16_t s, opt;
     static uint16_t size,sec,sent,data_size;
-    static uint16_t j,seq;
+    static uint16_t j,seq,len;
     char *appdata;
 
     PROCESS_BEGIN();
@@ -92,7 +92,12 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         buf[2] = '0';
         printf("APP: sending %d packet strlen buf %d\n", seq, strlen(buf));
         t = clock_time();
-        uip_udp_packet_send(conn, buf, strlen(buf));
+        if((data_size - sent) < size) {
+            len = data_size - sent;
+        } else {
+            len = strlen(buf);
+        }
+        uip_udp_packet_send(conn, buf, len);
         etimer_set(&et, CLOCK_SECOND*sec);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
         if(ev == tcpip_event) {
