@@ -320,5 +320,12 @@ struct sicslowpan_nh_compressor {
 
 extern const struct network_driver sicslowpan_driver;
 
+/**
+ * For testing purpose
+ * get_compressed_hdr_size:
+ * returns the size of compressed header after sicslowpan compression
+ */
+uint8_t get_compressed_hdr_size();
+
 #endif /* __SICSLOWPAN_H__ */
 /** @} */

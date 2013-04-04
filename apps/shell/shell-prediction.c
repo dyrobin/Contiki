@@ -4,8 +4,9 @@
 #include "net/uip-ds6.h"
 #include <string.h>
 #include <stdio.h>
+#include "sys/clock.h"
 
-#define MAX_BUF_SIZE 452
+#define MAX_BUF_SIZE 500
 
 PROCESS(shell_send_udp_process, "send_udp");
 SHELL_COMMAND(send_udp_command,
@@ -39,39 +40,77 @@ set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
     }
 }
 
+static clock_time_t
+time_diff(clock_time_t tm, clock_time_t cur)
+{
+    clock_time_t diff, max;
+
+    max = ~0;
+    if(tm < cur) {
+        diff = cur - tm;
+    } else {
+        diff = max + cur - tm;
+    }
+    return diff;
+}
+        
 PROCESS_THREAD(shell_send_udp_process, ev, data)
 {
     static uip_ipaddr_t dest_addr;
-    static struct timer et;
+    static struct etimer et;
+    static clock_time_t t, cur;
     const char *nextptr;
     static struct uip_udp_conn *conn;
+    static struct uip_udp_conn *server_conn;
     uint16_t s, opt;
-    static uint16_t size,sec;
-    static uint16_t i,j;
+    static uint16_t size,sec,sent,data_size;
+    static uint16_t j,seq;
+    char *appdata;
 
     PROCESS_BEGIN();
     
     s = shell_strtolong(data, &nextptr);
    // opt = shell_strtolong(nextptr, &nextptr);
     size = shell_strtolong(nextptr, &nextptr);
-    sec = shell_strtolong(nextptr, &nextptr);
+    data_size = shell_strtolong(nextptr, &nextptr);
 
     //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
-     
+    
+    seq = 1;
+    sec = 5; 
+    server_conn = udp_new(NULL, 0, NULL);
+    udp_bind(server_conn, UIP_HTONS(1729));
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
-    for(i=0; i<1000; i++) {
-        char buf[MAX_BUF_SIZE];
+    while(sent < data_size) {
+        char buf[MAX_BUF_SIZE], tmp[6];
         for(j=0; j<size; j++) {
             buf[j] = '0'+(j%8);
         }
         buf[size] = 0;
-        sprintf(buf,"%4d", i);
-        buf[4] = '0';
-        printf("sending %d packet strlen buf %d\n", i, strlen(buf));
+        sprintf(buf,"%2d", seq);
+        buf[2] = '0';
+        printf("APP: sending %d packet strlen buf %d\n", seq, strlen(buf));
+        t = clock_time();
         uip_udp_packet_send(conn, buf, strlen(buf));
         etimer_set(&et, CLOCK_SECOND*sec);
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
+        if(ev == tcpip_event) {
+            appdata = (char *)uip_appdata;
+            sprintf(buf, "%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
+                appdata[3], appdata[4]);
+            buf[5] = 0;
+            sprintf(tmp, "ACK%2d", seq); 
+            printf("APP: buf = %s, tmp = %s\n", buf, tmp);
+            if(!strcmp(buf, tmp)) {
+                seq++;
+                sent += size;
+                cur = clock_time();
+                printf("APP: Latency = %u msec\n", time_diff(t, cur)*1000/CLOCK_SECOND);
+            }
+        } else {
+            printf("APP: timer expired\n");
+        }
     }
     
     PROCESS_END();

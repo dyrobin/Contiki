@@ -1,4 +1,4 @@
-all: root child
+all: sender receiver
 APPS=serial-shell
 CONTIKI=../../
 
