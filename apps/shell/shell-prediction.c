@@ -30,7 +30,11 @@ static void
 set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
 {
     if(opt == 1) {
+#ifdef DIFF_DOMIAN         
         uip_ip6addr(send_addr, 0xbbbb, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
+#else
+        uip_ip6addr(send_addr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
+#endif        
     } else {
         uint16_t hexanum = 0x7400;
         uint16_t var1, var2;
@@ -74,7 +78,6 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     size = shell_strtolong(nextptr, &nextptr);
     data_size = shell_strtolong(nextptr, &nextptr);
 
-    //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
     
     seq = 1;
@@ -83,7 +86,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     udp_bind(server_conn, UIP_HTONS(1729));
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
     while(sent < data_size) {
-        char buf[MAX_BUF_SIZE], tmp[6];
+        char buf[MAX_BUF_SIZE], tmp[7];
         for(j=0; j<size; j++) {
             buf[j] = '0'+(j%8);
         }
@@ -102,16 +105,16 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
         if(ev == tcpip_event) {
             appdata = (char *)uip_appdata;
-            sprintf(buf, "%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
+            sprintf(buf, "%c%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
                 appdata[3], appdata[4], appdata[5]);
             buf[6] = 0;
-            sprintf(tmp, "ACK%3d", seq); 
-            printf("APP: buf = %s, tmp = %s\n", buf, tmp);
+            sprintf(tmp, "ACK%3d", seq);
+            printf("APP: ack = %s, seq = %s\n", &buf[3], &tmp[3]);
             if(!strcmp(buf, tmp)) {
                 seq++;
                 sent += size;
                 cur = clock_time();
-                printf("APP: Latency = %u msec\n", time_diff(t, cur)*1000/CLOCK_SECOND);
+                printf("APP: Latency = %lu msec\n", time_diff(t, cur)*1000/CLOCK_SECOND);
             }
         } else {
             printf("APP: timer expired\n");

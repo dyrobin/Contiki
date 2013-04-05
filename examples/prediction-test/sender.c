@@ -43,6 +43,7 @@ tcpip_handler(void)
 }
 #endif
 
+#ifndef DIFF_DOMAIN
 static uip_ipaddr_t *
 set_global_address(void)
 {
@@ -66,7 +67,7 @@ set_global_address(void)
 
   return &ipaddr;
 }
-
+#endif
 
 static void
 create_rpl_dag(uip_ipaddr_t *ipaddr)

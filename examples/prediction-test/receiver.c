@@ -33,12 +33,12 @@ tcpip_handler(void)
 
     if(uip_newdata()) {
         appdata = (char *)uip_appdata;
-        printf("APP: data no: %c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], uip_datalen());
+        printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], uip_datalen());
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
         conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
         sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
-        printf("APP: sending ack %s to ", buf);
+        printf("APP: sending %s to ", buf);
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
         uip_udp_packet_send(conn, buf, strlen(buf));
@@ -46,6 +46,7 @@ tcpip_handler(void)
     }
 }
 
+#ifndef DIFF_DOMAIN
 static void
 set_global_address(void)
 {
@@ -67,6 +68,7 @@ set_global_address(void)
     }
   }
 }
+#endif
 
 PROCESS_THREAD(child_shell_process, ev, data)
 {
@@ -77,6 +79,7 @@ PROCESS_THREAD(child_shell_process, ev, data)
 #else
     uart1_set_input(serial_line_input_byte);
 #endif
+
     serial_line_init();
     serial_shell_init();
 

@@ -1427,6 +1427,24 @@ output(uip_lladdr_t *localdest)
   PRINTFO("sicslowpan output: header of len %d\n", rime_hdr_len);
   printf("Is uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u)\
   - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, rime_hdr_len);
+/*
+  if (rime_hdr_len <= 4) {
+	  printf("rime header: ");
+	  int i = 0;
+	  while (i < rime_hdr_len) {
+		  printf("%x ", (uint8_t)rime_ptr[i++]);
+	  }
+	  printf("\n");
+
+	  printf("ip header: ");
+	  i = 0;
+	  while (i < uip_len) {
+		  printf("%x ", (uint8_t)((uint8_t *)UIP_IP_BUF)[i++]);
+	  }
+	  printf("\n");
+  }
+*/
+
 
   if(uip_len - uncomp_hdr_len > MAC_MAX_PAYLOAD - rime_hdr_len) {
 #if SICSLOWPAN_CONF_FRAG
@@ -1618,7 +1636,7 @@ input(void)
       PRINTFI("sicslowpan input: FRAG1 ");
       ctime = clock_time();
       ftime = clock_fine();
-      printf("sicslowpan: REASS START %u ", ctime);
+      printf("sicslowpan: REASS START %lu ", ctime);
       printf("%u \n", ftime);
       frag_offset = 0;
 /*       frag_size = (uip_ntohs(RIME_FRAG_BUF->dispatch_size) & 0x07ff); */
@@ -1800,7 +1818,8 @@ input(void)
     if(frag_flag) {
         ctime = clock_time();
         ftime = clock_fine();
-        printf("sicslowpan: REASS END %u ", ctime);
+        printf("sicslowpan: REASS END %lu ", ctime);
+
         printf("%u N ", ftime); 
         printf("%u\n", fragn_flag + frag_flag);
     }
