@@ -33,11 +33,11 @@ tcpip_handler(void)
 
     if(uip_newdata()) {
         appdata = (char *)uip_appdata;
-        printf("APP: data no: %c%c recieved of size %d from ", appdata[0], appdata[1], uip_datalen());
+        printf("APP: data no: %c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], uip_datalen());
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
         conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
-        sprintf(buf, "ACK%c%c", appdata[0], appdata[1]);
+        sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
         printf("APP: sending ack %s to ", buf);
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
@@ -67,28 +67,6 @@ set_global_address(void)
     }
   }
 }
-/*#ifdef CONTIKI_TARGET_SKY
-static void
-create_route(void)
-{
-    uip_ipaddr_t dest;
-    uip_ipaddr_t next;
-    uip_ds6_route_t *r;
-
-    uip_ip6addr(&dest, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x0003);
-    uip_ip6addr(&next, 0xfe80, 0, 0, 0, 0xc30c, 0, 0, 0x0003);
-
-//    printf("adding route\n");
-    uip_ds6_route_add(&dest, 128, &next, 0);
-    
-    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-        uip_debug_ipaddr_print(&r->ipaddr);
-        printf(" via ");
-        uip_debug_ipaddr_print(&r->nexthop);
-        printf("\n");
-    }
-}
-#endif*/
 
 PROCESS_THREAD(child_shell_process, ev, data)
 {
@@ -103,11 +81,9 @@ PROCESS_THREAD(child_shell_process, ev, data)
     serial_shell_init();
 
     shell_prediction_init();
-    
+#ifndef DIFF_DOMAIN  
     set_global_address();
-//#ifdef CONTIKI_TARGET_SKY
-//    create_route();
-//#endif
+#endif
     
     server_conn = udp_new(NULL, 0, NULL);
     udp_bind(server_conn, UIP_HTONS(1729));

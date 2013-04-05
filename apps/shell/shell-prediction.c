@@ -30,7 +30,7 @@ static void
 set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
 {
     if(opt == 1) {
-        uip_ip6addr(send_addr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
+        uip_ip6addr(send_addr, 0xbbbb, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
     } else {
         uint16_t hexanum = 0x7400;
         uint16_t var1, var2;
@@ -88,8 +88,8 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
             buf[j] = '0'+(j%8);
         }
         buf[size] = 0;
-        sprintf(buf,"%2d", seq);
-        buf[2] = '0';
+        sprintf(buf,"%3d", seq);
+        buf[3] = '0';
         printf("APP: sending %d packet strlen buf %d\n", seq, strlen(buf));
         t = clock_time();
         if((data_size - sent) < size) {
@@ -103,9 +103,9 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         if(ev == tcpip_event) {
             appdata = (char *)uip_appdata;
             sprintf(buf, "%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
-                appdata[3], appdata[4]);
-            buf[5] = 0;
-            sprintf(tmp, "ACK%2d", seq); 
+                appdata[3], appdata[4], appdata[5]);
+            buf[6] = 0;
+            sprintf(tmp, "ACK%3d", seq); 
             printf("APP: buf = %s, tmp = %s\n", buf, tmp);
             if(!strcmp(buf, tmp)) {
                 seq++;

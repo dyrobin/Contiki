@@ -23,6 +23,7 @@ static struct uip_udp_conn *server_conn;
 PROCESS(root_shell_process, "basic Shell For prediction testing- dodag root");
 AUTOSTART_PROCESSES(&root_shell_process);
 
+#if 0
 static void
 tcpip_handler(void)
 {
@@ -40,6 +41,7 @@ tcpip_handler(void)
         uip_udp_packet_send(conn, buf, strlen(buf));
     }
 }
+#endif
 
 static uip_ipaddr_t *
 set_global_address(void)
@@ -65,33 +67,6 @@ set_global_address(void)
   return &ipaddr;
 }
 
-/*static void
-create_route(void)
-{
-    uip_ipaddr_t dest;
-    uip_ipaddr_t next;
-    uip_ds6_route_t *r;
-
-    uip_ip6addr(&dest, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x0003);
-    uip_ip6addr(&next, 0xaaaa, 0, 0, 0, 0x212, 0x7402, 0x2, 0x202);
-
-    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-        uip_debug_ipaddr_print(&r->ipaddr);
-        printf(" via ");
-        uip_debug_ipaddr_print(&r->nexthop);
-        printf("\n");
-    }
-    
-//    printf("adding route\n");
-    uip_ds6_route_add(&dest, 128, &next, 0);
-    
-    for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
-        uip_debug_ipaddr_print(&r->ipaddr);
-        printf(" via ");
-        uip_debug_ipaddr_print(&r->nexthop);
-        printf("\n");
-    }
-}*/
 
 static void
 create_rpl_dag(uip_ipaddr_t *ipaddr)
@@ -130,9 +105,10 @@ PROCESS_THREAD(root_shell_process, ev, data)
 
     shell_prediction_init();
 
+#ifndef DIFF_DOMAIN
     ipaddr = set_global_address();
-
     create_rpl_dag(ipaddr);
+#endif
 
 #if 0
     server_conn = udp_new(NULL, 0, NULL);
