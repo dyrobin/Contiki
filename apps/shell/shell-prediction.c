@@ -6,7 +6,12 @@
 #include <stdio.h>
 #include "sys/clock.h"
 
-#define MAX_BUF_SIZE 500
+#if PMPD_ENABLED == 1
+#include "net/pmpd.h"
+#endif
+
+#define 	MAX_BUF_SIZE 	500
+#define 	RETRANS_TIMER	5
 
 PROCESS(shell_send_udp_process, "send_udp");
 SHELL_COMMAND(send_udp_command,
@@ -60,90 +65,152 @@ time_diff(clock_time_t tm, clock_time_t cur)
         
 PROCESS_THREAD(shell_send_udp_process, ev, data)
 {
+    const char *nextptr;
+
+    static struct uip_udp_conn *conn;
     static uip_ipaddr_t dest_addr;
     static struct etimer et;
-    static clock_time_t t, cur;
-    const char *nextptr;
-    static struct uip_udp_conn *conn;
-    static struct uip_udp_conn *server_conn;
-    uint16_t s, opt;
-    static uint16_t size,sec,sent,data_size;
-    static uint16_t j,seq,len;
-    char *appdata;
+    static clock_time_t start, end;
+
+    static uint16_t max_payload, sent, data_size;
+    static uint16_t seq, len;
+
 
     PROCESS_BEGIN();
-    
-    s = shell_strtolong(data, &nextptr);
-   // opt = shell_strtolong(nextptr, &nextptr);
-    size = shell_strtolong(nextptr, &nextptr);
+#if PMPD_ENABLED == 1
+    if (pmpd_attach_process(process_current)) {
+    	printf("APP: attached to pmpd \n");
+    } else {
+    	printf("APP: pmpd proc list full \n");
+    	PROCESS_EXIT();
+    }
+#endif
+
+
+    uint16_t s = shell_strtolong(data, &nextptr);
+#if PMPD_ENABLED == 0
+    max_payload = shell_strtolong(nextptr, &nextptr);
+#endif
     data_size = shell_strtolong(nextptr, &nextptr);
 
-    set_s_addr(s, 1, &dest_addr); 
-    
-    seq = 1;
-    sec = 5; 
-    server_conn = udp_new(NULL, 0, NULL);
-    udp_bind(server_conn, UIP_HTONS(1729));
+    // prepare for sending data
+    set_s_addr(s, 1, &dest_addr);
+    seq = 1; // starting from 1 not 0
+
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
-    while(sent < data_size) {
-        char buf[MAX_BUF_SIZE], tmp[7];
-        for(j=0; j<size; j++) {
-            buf[j] = '0'+(j%8);
-        }
-        buf[size] = 0;
-        sprintf(buf,"%3d", seq);
-        buf[3] = '0';
-        printf("APP: sending %d packet strlen buf %d\n", seq, strlen(buf));
-        t = clock_time();
-        if((data_size - sent) < size) {
-            len = data_size - sent;
-        } else {
-            len = strlen(buf);
-        }
-        uip_udp_packet_send(conn, buf, len);
-        etimer_set(&et, CLOCK_SECOND*sec);
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
-        if(ev == tcpip_event) {
-            appdata = (char *)uip_appdata;
-            sprintf(buf, "%c%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
-                appdata[3], appdata[4], appdata[5]);
-            buf[6] = 0;
-            sprintf(tmp, "ACK%3d", seq);
-            printf("APP: ack = %s, seq = %s\n", &buf[3], &tmp[3]);
-            if(!strcmp(buf, tmp)) {
-                seq++;
-                sent += size;
-                cur = clock_time();
-                printf("APP: Latency = %lu msec\n", time_diff(t, cur)*1000/CLOCK_SECOND);
+    if (conn) {
+        udp_bind(conn, UIP_HTONS(1729));
+
+        sent = 0;
+        etimer_set(&et, CLOCK_SECOND * RETRANS_TIMER);
+        while(sent < data_size) {
+            char buf[MAX_BUF_SIZE], tmp[7];
+
+#if PMPD_ENABLED == 1
+            max_payload = pmpd_get_max_payload(&dest_addr);
+#endif
+	    uint16_t i;
+	    for(i = 0; i < max_payload; i++) {
+                buf[i] = '0' + (i % 8);
+	    }
+            buf[max_payload] = 0;
+
+            // fill in seq
+            sprintf(buf,"%03u", seq);
+            buf[3] = '0';
+
+            // compute length
+            if ((data_size - sent) <= 3) {
+                len = 3;
+            } else if((data_size - sent) < max_payload) {
+                len = data_size - sent;
+            } else {
+                len = max_payload;
             }
-        } else {
-            printf("APP: timer expired\n");
+    
+            printf("APP: sending %u packet strlen buf %u\n", seq, len);
+
+            etimer_restart(&et);
+            start = clock_time();
+            uip_udp_packet_send(conn, buf, len);
+
+#if PMPD_ENABLED == 1
+            // check pmpd and resend immediately if changed
+            if (max_payload != pmpd_get_max_payload(&dest_addr)) {
+                printf("APP: resend immediately as max_payload changed!\n");
+                continue;
+            }
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event) || (ev == pmpd_event));
+#else
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
+#endif
+
+            if(ev == tcpip_event) {
+                char * appdata = (char *)uip_appdata;
+                sprintf(buf, "%c%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
+                        appdata[3], appdata[4], appdata[5]);
+                buf[6] = 0;
+                sprintf(tmp, "ACK%03u", seq);
+                printf("APP: ack = %s, seq = %s\n", &buf[3], &tmp[3]);
+                if(!strcmp(buf, tmp)) {
+                    seq++;
+                    sent += len;
+                    end = clock_time();
+                    printf("APP: Latency = %lu msec\n", time_diff(start, end)*1000/CLOCK_SECOND);
+            }
+#if PMPD_ENABLED == 1
+            } else if (ev == pmpd_event) {
+                printf("APP: pmpd update!\n");
+#endif
+            } else {
+                printf("APP: timer expired\n");
+            }
         }
+        etimer_stop(&et);
+    } else {
+    	printf("APP: cannot establish connection\n");
     }
+
+    // remove connection
+    if(conn) {
+    	printf("APP: conn removed\n");
+    	conn->lport = 0;
+    }
+
+#if PMPD_ENABLED == 1
+    // detach pmpd
+    if (pmpd_detach_process(process_current)) {
+    	printf("APP: detached from pmpd\n");
+    }
+#endif
     
     PROCESS_END();
 }
 
 PROCESS_THREAD(shell_check_path_process, ev, data)
 {
-    static uip_ipaddr_t dest_addr;
     const char *nextptr;
+
     static struct uip_udp_conn *conn;
+    static uip_ipaddr_t dest_addr;
     char buf[64];
-    uint16_t s,i;
-    uint16_t opt;
+    uint16_t s;
 
     PROCESS_BEGIN();
     
     s = shell_strtolong(data, &nextptr);
     //opt = shell_strtolong(nextptr, &nextptr);
-    //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
      
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
-    sprintf(buf, "hello there node\n");
-    //printf("%d strlen\n", strlen(buf));
-    uip_udp_packet_send(conn, buf, strlen(buf));
+
+    if (conn) {
+        sprintf(buf, "hello there\n");
+        //printf("%d strlen\n", strlen(buf));
+        uip_debug_ipaddr_print(&conn->ripaddr);
+        printf("\n");
+        uip_udp_packet_send(conn, buf, strlen(buf));
+    }
 
     PROCESS_END();
 }

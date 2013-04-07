@@ -57,6 +57,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include "contiki.h"
 #include "dev/watchdog.h"
@@ -67,6 +68,11 @@
 #include "net/sicslowpan.h"
 #include "net/neighbor-info.h"
 #include "net/netstack.h"
+
+#if PMPD_ENABLED == 1
+#include "net/pmpd.h"
+#include "net/uip-icmp6.h"
+#endif
 
 #define DEBUG_PREDICTION 1
 #define DEBUG 0
@@ -1425,8 +1431,6 @@ output(uip_lladdr_t *localdest)
     compress_hdr_ipv6(&dest);
   }
   PRINTFO("sicslowpan output: header of len %d\n", rime_hdr_len);
-  printf("Is uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u)\
-  - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, rime_hdr_len);
 /*
   if (rime_hdr_len <= 4) {
 	  printf("rime header: ");
@@ -1445,8 +1449,41 @@ output(uip_lladdr_t *localdest)
   }
 */
 
-
   if(uip_len - uncomp_hdr_len > MAC_MAX_PAYLOAD - rime_hdr_len) {
+
+#if PMPD_ENABLED == 1
+	uint8_t pkt_header, max_payload;
+	if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) {
+		struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
+		if (hbho_buf->next == UIP_PROTO_UDP) {
+			pkt_header = UIP_LLH_LEN + UIP_IPH_LEN + (hbho_buf->len << 3) + 8 + UIP_UDPH_LEN;
+			printf("sicslowpan: pkt_header(%u) with HBHO(%u) and UDP\n", pkt_header, (hbho_buf->len << 3) + 8);
+		}
+	} else if (UIP_IP_BUF->proto == UIP_PROTO_UDP) {
+		pkt_header = UIP_LLH_LEN + UIP_IPH_LEN + UIP_UDPH_LEN;
+		printf("sicslowpan: pkt_header(%u) with UDP\n", pkt_header);
+	} else {
+		printf ("sicslowpan: Unexpected IP data!\n");
+		return 0;
+	}
+
+	max_payload = MAC_MAX_PAYLOAD - rime_hdr_len - (pkt_header - uncomp_hdr_len);
+
+	printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u)\
+	  - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, rime_hdr_len);
+	printf("sicslowpan: max_payload(%u)\n", max_payload);
+
+	if (uip_ds6_is_my_addr(&UIP_IP_BUF->srcipaddr)) {
+		printf("sicslowpan: PMPD update max_payload locally \n");
+		pmpd_set_max_payload(&UIP_IP_BUF->destipaddr, max_payload);
+	} else {
+		printf("sicslowpan: PMPD send max_payload back\n");
+		uip_icmp6_pmpd_output(max_payload);
+	}
+
+	return 0;
+#endif
+
 #if SICSLOWPAN_CONF_FRAG
     num_frag = 0;
     struct queuebuf *q;

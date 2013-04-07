@@ -132,6 +132,10 @@ uip_icmp6_error_output(uint8_t type, uint8_t code, uint32_t param);
 void
 uip_icmp6_send(uip_ipaddr_t *dest, int type, int code, int payload_len);
 
+#if PMPD_ENABLED == 1
+void
+uip_icmp6_pmpd_output(uint8_t max_payload);
+#endif
 
 /** @} */
 

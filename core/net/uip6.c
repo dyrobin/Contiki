@@ -78,6 +78,11 @@
 
 #include <string.h>
 
+
+#if PMPD_ENABLED == 1
+#include "net/pmpd.h"
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
@@ -1417,6 +1422,22 @@ uip_process(uint8_t flag)
       UIP_STAT(++uip_stat.icmp.recv);
       uip_len = 0;
       break;
+
+#if PMPD_ENABLED == 1
+    case ICMP6_PACKET_TOO_BIG:
+      printf("uip6: receive max_payload(%u) from ", UIP_ICMP_BUF->icode);
+      uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+      printf(" with original dest addr ");
+      uip_debug_ipaddr_print((uip_ip6addr_t*)((uint8_t *)UIP_ICMP_BUF + UIP_ICMPH_LEN));
+      printf("\n");
+
+      pmpd_set_max_payload((uip_ip6addr_t*)((uint8_t *)UIP_ICMP_BUF + UIP_ICMPH_LEN), UIP_ICMP_BUF->icode);
+      // notify upper layer application
+      pmpd_poll_proc();
+      uip_len = 0;
+      break;
+#endif
+
     default:
       PRINTF("Unknown icmp6 message type %d\n", UIP_ICMP_BUF->type);
       UIP_STAT(++uip_stat.icmp.drop);
@@ -1513,7 +1534,7 @@ uip_process(uint8_t flag)
 
  udp_send:
   PRINTF("In udp_send\n");
-
+  printf("In udp_send\n");
   if(uip_slen == 0) {
     goto drop;
   }
@@ -1537,6 +1558,8 @@ uip_process(uint8_t flag)
   uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
 
   uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];
+
+  printf("udp: src:%u dest:%u", UIP_HTONS(UIP_UDP_BUF->srcport), UIP_HTONS(UIP_UDP_BUF->destport));
 
 #if UIP_UDP_CHECKSUMS
   /* Calculate UDP checksum. */

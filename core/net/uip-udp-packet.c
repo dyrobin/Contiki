@@ -59,6 +59,7 @@ uip_udp_packet_send(struct uip_udp_conn *c, const void *data, int len)
            uip_slen);
     uip_process(UIP_UDP_SEND_CONN);
 #if UIP_CONF_IPV6
+    printf("uip_packet: to ipv6_output\n");
     tcpip_ipv6_output();
 #else
     if(uip_len > 0) {

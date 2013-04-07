@@ -77,6 +77,10 @@ process_event_t tcpip_event;
 process_event_t tcpip_icmp6_event;
 #endif /* UIP_CONF_ICMP6 */
 
+#if PMPD_ENABLED == 1
+process_event_t pmpd_event;
+#endif
+
 /* Periodic check of active connections. */
 static struct etimer periodic;
 
@@ -758,6 +762,11 @@ PROCESS_THREAD(tcpip_process, ev, data)
 #if UIP_CONF_ICMP6
   tcpip_icmp6_event = process_alloc_event();
 #endif /* UIP_CONF_ICMP6 */
+
+#if PMPD_ENABLED == 1
+  pmpd_event = process_alloc_event();
+#endif
+
   etimer_set(&periodic, CLOCK_SECOND / 2);
 
   uip_init();

@@ -27,7 +27,6 @@ AUTOSTART_PROCESSES(&child_shell_process);
 static void
 tcpip_handler(void)
 {
-    static struct uip_udp_conn *conn;
     char buf[16];
     char *appdata;
 
@@ -36,13 +35,16 @@ tcpip_handler(void)
         printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], uip_datalen());
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
-        conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
+
+        
         sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
+        
         printf("APP: sending %s to ", buf);
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf("\n");
-        uip_udp_packet_send(conn, buf, strlen(buf));
-        conn->lport = 0;
+
+        uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+//        uip_udp_packet_send(server_conn, buf, strlen(buf));
     }
 }
 
@@ -88,7 +90,7 @@ PROCESS_THREAD(child_shell_process, ev, data)
     set_global_address();
 #endif
     
-    server_conn = udp_new(NULL, 0, NULL);
+    server_conn = udp_new(NULL, UIP_HTONS(1728), NULL);
     udp_bind(server_conn, UIP_HTONS(1729));
 
     while(1) {

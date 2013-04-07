@@ -157,9 +157,69 @@ uip_icmp6_echo_request_input(void)
   UIP_STAT(++uip_stat.icmp.sent);
   return;
 }
+#if PMPD_ENABLED == 1
+void
+uip_icmp6_pmpd_output(uint8_t max_payload)
+{
+#if UIP_CONF_IPV6_RPL
+	uip_ext_len = rpl_invert_header();
+#else /* UIP_CONF_IPV6_RPL */
+	uip_ext_len = 0;
+#endif /* UIP_CONF_IPV6_RPL */
+
+	uip_ipaddr_copy(&tmp_ipaddr, &UIP_IP_BUF->destipaddr);
+
+	UIP_IP_BUF->vtc = 0x60;
+	UIP_IP_BUF->tcflow = 0;
+	UIP_IP_BUF->flow = 0;
+	if (uip_ext_len) {
+		UIP_FIRST_EXT_BUF->next = UIP_PROTO_ICMP6;
+	} else {
+		UIP_IP_BUF->proto = UIP_PROTO_ICMP6;
+	}
+	UIP_IP_BUF->ttl = uip_ds6_if.cur_hop_limit;
+
+	uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &UIP_IP_BUF->srcipaddr);
+
+#if UIP_CONF_ROUTER
+	/* need to pick a source that corresponds to this node */
+	uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &tmp_ipaddr);
+#else
+	uip_ipaddr_copy(&UIP_IP_BUF->srcipaddr, &tmp_ipaddr);
+#endif
+
+	// send too big ICMP message
+	UIP_ICMP_BUF->type = 2;
+	UIP_ICMP_BUF->icode = max_payload;
+
+	memcpy((uint8_t *)UIP_ICMP6_ERROR_BUF, (uint8_t *)&tmp_ipaddr, sizeof(uip_ip6addr_t));
+
+	uip_len = UIP_IPH_LEN + uip_ext_len + UIP_ICMPH_LEN + sizeof(uip_ip6addr_t);
+
+	UIP_IP_BUF->len[0] = (uip_len - UIP_IPH_LEN) >> 8;
+	UIP_IP_BUF->len[1] = (uip_len - UIP_IPH_LEN) & 0xff;
+
+	UIP_ICMP_BUF->icmpchksum = 0;
+	UIP_ICMP_BUF->icmpchksum = ~uip_icmp6chksum();
+
+	UIP_STAT(++uip_stat.icmp.sent);
+
+	PRINTF("Sending ICMPv6 PMPD message to");
+	PRINT6ADDR(&UIP_IP_BUF->destipaddr);
+	PRINTF("from");
+	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+	PRINTF("\n");
+
+	tcpip_ipv6_output();
+
+	return;
+}
+#endif
+
 /*---------------------------------------------------------------------------*/
 void
-uip_icmp6_error_output(uint8_t type, uint8_t code, uint32_t param) {
+uip_icmp6_error_output(uint8_t type, uint8_t code, uint32_t param)
+{
 
  /* check if originating packet is not an ICMP error*/
   if (uip_ext_len) {

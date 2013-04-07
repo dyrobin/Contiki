@@ -18,7 +18,6 @@
 #include <string.h>
 
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-static struct uip_udp_conn *server_conn;
 
 PROCESS(root_shell_process, "basic Shell For prediction testing- dodag root");
 AUTOSTART_PROCESSES(&root_shell_process);
@@ -67,7 +66,6 @@ set_global_address(void)
 
   return &ipaddr;
 }
-#endif
 
 static void
 create_rpl_dag(uip_ipaddr_t *ipaddr)
@@ -88,6 +86,7 @@ create_rpl_dag(uip_ipaddr_t *ipaddr)
         PRINTF("failed to create a new RPL DAG\n");
     }
 }
+#endif
 
 PROCESS_THREAD(root_shell_process, ev, data)
 {
