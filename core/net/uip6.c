@@ -1182,6 +1182,7 @@ uip_process(uint8_t flag)
       PRINT6ADDR(&UIP_IP_BUF->destipaddr);
       PRINTF("\n");
 
+      if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) printf("mark\n");
       UIP_STAT(++uip_stat.ip.forwarded);
       goto send;
     } else {

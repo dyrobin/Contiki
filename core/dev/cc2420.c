@@ -411,6 +411,7 @@ cc2420_transmit(unsigned short payload_len)
       ENERGEST_OFF_LEVEL(ENERGEST_TYPE_TRANSMIT,cc2420_get_txpower());
 #endif
       ENERGEST_OFF(ENERGEST_TYPE_TRANSMIT);
+      printf("cc2420: Tx %u\n", energest_type_time(ENERGEST_TYPE_TRANSMIT));
       if(receive_on) {
 	ENERGEST_ON(ENERGEST_TYPE_LISTEN);
       } else {

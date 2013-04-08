@@ -235,15 +235,12 @@ packet_sent(void *ptr, int status, int num_transmissions)
     switch(status) {
     case MAC_TX_COLLISION:
       PRINTF("csma: rexmit collision %d\n", n->transmissions);
-      //printf("csma: rexmit collision %d\n", n->transmissions);
       break;
     case MAC_TX_NOACK:
       PRINTF("csma: rexmit noack %d\n", n->transmissions);
-      //printf("csma: rexmit noack %d\n", n->transmissions);
       break;
     default:
       PRINTF("csma: rexmit err %d, %d\n", status, n->transmissions);
-      //printf("csma: rexmit err %d, %d\n", status, n->transmissions);
     }
 
     /* The retransmission time must be proportional to the channel
