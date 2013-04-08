@@ -1,6 +1,6 @@
 #include "contiki.h"
-#include "shell.h"
-#include "serial-shell.h"
+//#include "shell.h"
+//#include "serial-shell.h"
 #include "net/uip.h"
 #include "net/uip-ds6.h"
 #include "net/uip-debug.h"
@@ -18,6 +18,7 @@
 #include <string.h>
 
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
+
 static struct uip_udp_conn *server_conn;
 
 PROCESS(root_shell_process, "basic Shell For prediction testing- dodag root");
@@ -26,21 +27,28 @@ AUTOSTART_PROCESSES(&root_shell_process);
 static void
 tcpip_handler(void)
 {
-    static struct uip_udp_conn *conn;
     char buf[16];
     char *appdata;
 
     if(uip_newdata()) {
-        if(uip_datalen() > 4) {        
+    	if (uip_udp_conn != server_conn) {
+    		printf("Shit! FETAL ERROR!!!\n");
+    	}
+
+        if(uip_datalen() > 4) {
             appdata = (char *)uip_appdata;
-            //printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
-            //printf("data recieved of size %d from ", uip_datalen());
-            //uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-            //printf("\n");
-            leds_toggle(LEDS_GREEN);
-//            conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
-//            sprintf(buf, "OK");
-//            uip_udp_packet_send(conn, buf, strlen(buf));
+            printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
+            printf("data recieved of size %d from ", uip_datalen());
+            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+            printf("\n");
+
+            sprintf(buf, "ACK %c%C%C%C", appdata[0], appdata[1], appdata[2], appdata[3]);
+            uip_ipaddr_copy(&uip_udp_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+            uip_udp_packet_send(uip_udp_conn, buf, strlen(buf));
+
+            memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
+//            leds_toggle(LEDS_GREEN);
+
         } else if(uip_datalen() == 2) {
             printf("OK received\n");
         } else {
@@ -60,7 +68,7 @@ set_global_address(void)
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-    PRINTF("IPV6 addresses:");
+    printf("Globel IPV6 addresses:");
     for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         state = uip_ds6_if.addr_list[i].state;
         if(uip_ds6_if.addr_list[i].isused &&
@@ -115,9 +123,9 @@ create_rpl_dag(uip_ipaddr_t *ipaddr)
         dag = rpl_get_any_dag();
         uip_ip6addr(&prefix, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
         rpl_set_prefix(dag, &prefix, 64);
-        PRINTF("created a new RPL dag\n");
+        printf("created a new RPL dag\n");
     } else {
-        PRINTF("failed to create a new RPL DAG\n");
+        printf("failed to create a new RPL DAG\n");
     }
 }
 
@@ -126,26 +134,23 @@ PROCESS_THREAD(root_shell_process, ev, data)
     uip_ipaddr_t *ipaddr;
    
     PROCESS_BEGIN();
- 
    
-#if CONTIKI_TARGET_Z1
-    uart0_set_input(serial_line_input_byte);
-#else
-    uart1_set_input(serial_line_input_byte);
-#endif
-    serial_line_init();
-    serial_shell_init();
-
-    shell_prediction_init();
+//#if CONTIKI_TARGET_Z1
+//    uart0_set_input(serial_line_input_byte);
+//#else
+//    uart1_set_input(serial_line_input_byte);
+//#endif
+//    serial_line_init();
+//    serial_shell_init();
+//
+//    shell_prediction_init();
 
     ipaddr = set_global_address();
 
-//    create_route();
-
     create_rpl_dag(ipaddr);
 
-    server_conn = udp_new(NULL, 0, NULL);
-    udp_bind(server_conn, UIP_HTONS(1729));
+    server_conn = udp_new(NULL, UIP_HTONS(3001), NULL);
+    udp_bind(server_conn, UIP_HTONS(3000));
 
     while(1) {
         PROCESS_YIELD();

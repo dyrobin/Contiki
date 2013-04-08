@@ -4,9 +4,11 @@
  * written by Yang Deng, DCS-CSE, Aalto University
  */
 
-#include "pmpd.h"
+
 #include <stdio.h>
 #include <string.h>
+#include "pmpd.h"
+#include "uip-debug.h"
 
 pmpd_cache_t net_pmpd_cache[NUM_CACHE_PMPD];
 

@@ -97,9 +97,9 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     set_s_addr(s, 1, &dest_addr);
     seq = 1; // starting from 1 not 0
 
-    conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
+    conn = udp_new(&dest_addr, UIP_HTONS(3000), NULL);
     if (conn) {
-        udp_bind(conn, UIP_HTONS(1729));
+        udp_bind(conn, UIP_HTONS(3001));
 
         sent = 0;
         etimer_set(&et, CLOCK_SECOND * RETRANS_TIMER);
@@ -151,7 +151,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
                         appdata[3], appdata[4], appdata[5]);
                 buf[6] = 0;
                 sprintf(tmp, "ACK%03u", seq);
-                printf("APP: ack = %s, seq = %s\n", &buf[3], &tmp[3]);
+                printf("APP: seq = %s, ack = %s\n", &tmp[3], &buf[3]);
                 if(!strcmp(buf, tmp)) {
                     seq++;
                     sent += len;
@@ -173,7 +173,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
     // remove connection
     if(conn) {
-    	printf("APP: conn removed\n");
+    	printf("APP: connection removed\n");
     	conn->lport = 0;
     }
 
@@ -189,27 +189,25 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
 PROCESS_THREAD(shell_check_path_process, ev, data)
 {
-    const char *nextptr;
-
-    static struct uip_udp_conn *conn;
-    static uip_ipaddr_t dest_addr;
-    char buf[64];
-    uint16_t s;
-
     PROCESS_BEGIN();
+
+    const char *nextptr;
+    uip_ipaddr_t dest_addr;
+    uint16_t s;
     
     s = shell_strtolong(data, &nextptr);
     //opt = shell_strtolong(nextptr, &nextptr);
     set_s_addr(s, 1, &dest_addr); 
-     
-    conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
+
+    struct uip_udp_conn *conn;
+    conn = udp_new(&dest_addr, UIP_HTONS(3000), NULL);
+    udp_bind(conn, UIP_HTONS(3001));
 
     if (conn) {
-        sprintf(buf, "hello there\n");
-        //printf("%d strlen\n", strlen(buf));
-        uip_debug_ipaddr_print(&conn->ripaddr);
-        printf("\n");
+        char buf[64];
+        sprintf(buf, "hello there");
         uip_udp_packet_send(conn, buf, strlen(buf));
+        conn->lport = 0;
     }
 
     PROCESS_END();

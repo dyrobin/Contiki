@@ -22,26 +22,6 @@
 PROCESS(root_shell_process, "basic Shell For prediction testing- dodag root");
 AUTOSTART_PROCESSES(&root_shell_process);
 
-#if 0
-static void
-tcpip_handler(void)
-{
-    static struct uip_udp_conn *conn;
-    char buf[16];
-    char *appdata;
-
-    if(uip_newdata()) {
-        appdata = (char *)uip_appdata;
-        printf("data no: %c%c recieved of size %d from ", appdata[0], appdata[1], uip_datalen());
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf("\n");
-        conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
-        sprintf(buf, "ACK%c%c", appdata[0], appdata[1]);
-        uip_udp_packet_send(conn, buf, strlen(buf));
-    }
-}
-#endif
-
 #ifndef DIFF_DOMAIN
 static uip_ipaddr_t *
 set_global_address(void)
@@ -54,7 +34,7 @@ set_global_address(void)
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-    PRINTF("IPV6 addresses:");
+    printf("IPV6 addresses:");
     for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         state = uip_ds6_if.addr_list[i].state;
         if(uip_ds6_if.addr_list[i].isused &&
@@ -90,11 +70,10 @@ create_rpl_dag(uip_ipaddr_t *ipaddr)
 
 PROCESS_THREAD(root_shell_process, ev, data)
 {
-    uip_ipaddr_t *ipaddr;
+    static uip_ipaddr_t *ipaddr;
    
     PROCESS_BEGIN();
- 
-   
+
 #if CONTIKI_TARGET_Z1
     uart0_set_input(serial_line_input_byte);
 #else
@@ -110,17 +89,5 @@ PROCESS_THREAD(root_shell_process, ev, data)
     create_rpl_dag(ipaddr);
 #endif
 
-#if 0
-    server_conn = udp_new(NULL, 0, NULL);
-    udp_bind(server_conn, UIP_HTONS(1729));
-
-    while(1) {
-        PROCESS_YIELD();
-        if(ev == tcpip_event) {
-            tcpip_handler();
-        }
-    }
-#endif
-    
     PROCESS_END();
 }

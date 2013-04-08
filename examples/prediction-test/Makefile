@@ -5,12 +5,7 @@ CONTIKI=../../
 WITH_UIP6=1
 UIP_CONF_IPV6=1
 
-
-#for test in single domain
-CFLAGS+= -DUIP_CONF_IPV6_RPL
-
-# for test in different domains
-#CFLAGS+= -DUIP_CONF_IPV6_RPL -DDIFF_DOMAIN
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 
 SMALL=1
 

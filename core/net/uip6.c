@@ -527,6 +527,7 @@ remove_ext_hdr(void)
     /* Update the IP length. */
     UIP_IP_BUF->len[0] = (uip_len - UIP_IPH_LEN) >> 8;
     UIP_IP_BUF->len[1] = (uip_len - UIP_IPH_LEN) & 0xff;
+
     uip_ext_len = 0;
   }
 }
@@ -1180,6 +1181,7 @@ uip_process(uint8_t flag)
       PRINTF("Forwarding packet to ");
       PRINT6ADDR(&UIP_IP_BUF->destipaddr);
       PRINTF("\n");
+
       UIP_STAT(++uip_stat.ip.forwarded);
       goto send;
     } else {
@@ -1226,6 +1228,11 @@ uip_process(uint8_t flag)
 #if UIP_UDP
       case UIP_PROTO_UDP:
         /* UDP, for both IPv4 and IPv6 */
+
+    	/* IP packet proto filed might be updated?
+         * Add by Yang Deng
+         */
+      	// UIP_IP_BUF->proto = UIP_PROTO_UDP;
         goto udp_input;
 #endif /* UIP_UDP */
       case UIP_PROTO_ICMP6:
@@ -1458,10 +1465,10 @@ uip_process(uint8_t flag)
 #if UIP_UDP
   /* UDP input processing. */
  udp_input:
-
   remove_ext_hdr();
 
   PRINTF("Receiving UDP packet\n");
+
   UIP_STAT(++uip_stat.udp.recv);
  
   /* UDP processing is really just a hack. We don't do anything to the
@@ -1481,6 +1488,7 @@ uip_process(uint8_t flag)
     UIP_STAT(++uip_stat.udp.chkerr);
     PRINTF("udp: bad checksum 0x%04x 0x%04x\n", UIP_UDP_BUF->udpchksum,
            uip_udpchksum());
+
     goto drop;
   }
 #else /* UIP_UDP_CHECKSUMS */
@@ -1525,7 +1533,7 @@ uip_process(uint8_t flag)
 
  udp_found:
   PRINTF("In udp_found\n");
- 
+
   uip_conn = NULL;
   uip_flags = UIP_NEWDATA;
   uip_sappdata = uip_appdata = &uip_buf[UIP_IPUDPH_LEN + UIP_LLH_LEN];
@@ -1534,7 +1542,6 @@ uip_process(uint8_t flag)
 
  udp_send:
   PRINTF("In udp_send\n");
-  printf("In udp_send\n");
   if(uip_slen == 0) {
     goto drop;
   }
@@ -1559,11 +1566,10 @@ uip_process(uint8_t flag)
 
   uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];
 
-  printf("udp: src:%u dest:%u", UIP_HTONS(UIP_UDP_BUF->srcport), UIP_HTONS(UIP_UDP_BUF->destport));
-
 #if UIP_UDP_CHECKSUMS
   /* Calculate UDP checksum. */
   UIP_UDP_BUF->udpchksum = ~(uip_udpchksum());
+
   if(UIP_UDP_BUF->udpchksum == 0) {
     UIP_UDP_BUF->udpchksum = 0xffff;
   }

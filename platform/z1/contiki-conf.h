@@ -185,13 +185,15 @@
 #define UIP_CONF_BROADCAST       1
 #define UIP_ARCH_IPCHKSUM        1
 #define UIP_CONF_UDP             1
-#define UIP_CONF_UDP_CHECKSUMS   1
+#define UIP_CONF_UDP_CHECKSUMS   0
 #define UIP_CONF_PINGADDRCONF    0
 #define UIP_CONF_LOGGING         0
 
 #define UIP_CONF_TCP_SPLIT       0
 
+#ifndef PMPD_ENABLED
 #define PMPD_ENABLED			 0
+#endif
 
 #ifdef PROJECT_CONF_H
 #include PROJECT_CONF_H
