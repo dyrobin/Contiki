@@ -30,6 +30,25 @@ uint8_t pmpd_find_pos(const uip_ip6addr_t* dst_addr)
 	return NUM_CACHE_PMPD;
 }
 
+static
+void pmpd_debug_cache()
+{
+	int i;
+	for (i = 0; i < NUM_CACHE_PMPD; i++) {
+		printf("pmpd_cache[%d]: ", i);
+		uip_debug_ipaddr_print(&net_pmpd_cache[i].dst_node_addr);
+		printf(" with max_payload(%u)\n", net_pmpd_cache[i].max_payload);
+	}
+}
+
+void pmpd_init()
+{
+	int i;
+	for (i = 0; i < NUM_CACHE_PMPD; i++) {
+		uip_ip6addr(&net_pmpd_cache[i].dst_node_addr, 0, 0, 0, 0, 0, 0, 0, 0);
+		net_pmpd_cache[i].max_payload = 0;
+	}
+}
 
 void pmpd_poll_proc()
 {
@@ -64,6 +83,7 @@ uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_pa
 	tail_pmpd_cache = ( tail_pmpd_cache + 1 ) % NUM_CACHE_PMPD;
 	printf(" not found in cache then add max_payload(%u)\n", max_payload);
 
+	pmpd_debug_cache();
 	return 1;
 }
 

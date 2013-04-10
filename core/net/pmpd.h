@@ -31,6 +31,7 @@ typedef struct pmpd_cache {
 
 extern pmpd_cache_t net_pmpd_cache[];
 
+void pmpd_init();
 uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_payload);
 uint8_t pmpd_get_max_payload(const uip_ip6addr_t* dst_addr);
 

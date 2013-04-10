@@ -77,6 +77,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
 
     PROCESS_BEGIN();
+    pmpd_init();
 
 #if PMPD_ENABLED == 1
     if (pmpd_attach_process(process_current)) {
