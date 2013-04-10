@@ -10,7 +10,7 @@
 #include "net/pmpd.h"
 #endif
 
-#define 	MAX_BUF_SIZE 	500
+#define 	MAX_BUF_SIZE 	464
 #define 	RETRANS_TIMER	5
 
 PROCESS(shell_send_udp_process, "send_udp");
@@ -75,9 +75,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     static uint16_t max_payload, sent, data_size;
     static uint16_t seq, len;
 
-
     PROCESS_BEGIN();
-    pmpd_init();
 
 #if PMPD_ENABLED == 1
     if (pmpd_attach_process(process_current)) {
@@ -109,15 +107,14 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
         printf("Timing: start %lu\n", clock_time());
         while(sent < data_size) {
-            char buf[MAX_BUF_SIZE], tmp[7];
-
+            char buf[MAX_BUF_SIZE];
 #if PMPD_ENABLED == 1
             max_payload = pmpd_get_max_payload(&dest_addr);
 #endif
-	    uint16_t i;
-	    for(i = 0; i < max_payload; i++) {
-                buf[i] = '0' + (i % 8);
-	    }
+			uint16_t i;
+			for(i = 0; i < max_payload; i++) {
+				buf[i] = '0' + (i % 8);
+			}
             buf[max_payload] = 0;
 
             // fill in seq
@@ -153,6 +150,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
             if(ev == tcpip_event) {
                 char * appdata = (char *)uip_appdata;
+                char tmp[7];
                 sprintf(buf, "%c%c%c%c%c%c", appdata[0], appdata[1], appdata[2],
                         appdata[3], appdata[4], appdata[5]);
                 buf[6] = 0;
@@ -162,7 +160,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
                     seq++;
                     sent += len;
                     printf("Timing: ACKed %lu\n", clock_time());
-            }
+                }
 #if PMPD_ENABLED == 1
             } else if (ev == pmpd_event) {
                 printf("APP: pmpd update!\n");
