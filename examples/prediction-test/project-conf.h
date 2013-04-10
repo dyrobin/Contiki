@@ -4,6 +4,11 @@
 #undef PMPD_ENABLED
 #define PMPD_ENABLED    1
 
+#if PMPD_ENABLED == 0
+#undef UIP_CONF_BUFFER_SIZE
+#define UIP_CONF_BUFFER_SIZE 140
+#endif
+
 #undef DIFF_DOMAIN
 //#define DIFF_DOMAIN   1
 
