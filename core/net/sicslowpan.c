@@ -1451,6 +1451,8 @@ output(uip_lladdr_t *localdest)
 
   if(uip_len - uncomp_hdr_len > MAC_MAX_PAYLOAD - rime_hdr_len) {
 
+	  printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u)\
+		  - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, rime_hdr_len);
 #if PMPD_ENABLED == 1
 	uint8_t pkt_header, max_payload;
 	if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) {
@@ -1469,8 +1471,6 @@ output(uip_lladdr_t *localdest)
 
 	max_payload = MAC_MAX_PAYLOAD - rime_hdr_len - (pkt_header - uncomp_hdr_len);
 
-	printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u)\
-	  - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, rime_hdr_len);
 	printf("sicslowpan: max_payload(%u)\n", max_payload);
 
 	if (uip_ds6_is_my_addr(&UIP_IP_BUF->srcipaddr)) {

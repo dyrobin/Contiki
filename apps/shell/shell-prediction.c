@@ -49,19 +49,19 @@ set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
     }
 }
 
-static clock_time_t
-time_diff(clock_time_t tm, clock_time_t cur)
-{
-    clock_time_t diff, max;
-
-    max = ~0;
-    if(tm < cur) {
-        diff = cur - tm;
-    } else {
-        diff = max + cur - tm;
-    }
-    return diff;
-}
+//static clock_time_t
+//time_diff(clock_time_t tm, clock_time_t cur)
+//{
+//    clock_time_t diff, max;
+//
+//    max = ~0;
+//    if(tm < cur) {
+//        diff = cur - tm;
+//    } else {
+//        diff = max + cur - tm;
+//    }
+//    return diff;
+//}
         
 PROCESS_THREAD(shell_send_udp_process, ev, data)
 {
@@ -70,13 +70,14 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     static struct uip_udp_conn *conn;
     static uip_ipaddr_t dest_addr;
     static struct etimer et;
-    static clock_time_t start, end;
+//    static clock_time_t start, end;
 
     static uint16_t max_payload, sent, data_size;
     static uint16_t seq, len;
 
 
     PROCESS_BEGIN();
+
 #if PMPD_ENABLED == 1
     if (pmpd_attach_process(process_current)) {
     	printf("APP: attached to pmpd \n");
@@ -103,6 +104,9 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
         sent = 0;
         etimer_set(&et, CLOCK_SECOND * RETRANS_TIMER);
+        energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);
+
+        printf("Timing: start %lu\n", clock_time());
         while(sent < data_size) {
             char buf[MAX_BUF_SIZE], tmp[7];
 
@@ -131,7 +135,8 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
             printf("APP: sending %u packet strlen buf %u\n", seq, len);
 
             etimer_restart(&et);
-            start = clock_time();
+            printf("Timing: sending %lu\n", clock_time());
+
             uip_udp_packet_send(conn, buf, len);
 
 #if PMPD_ENABLED == 1
@@ -155,8 +160,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
                 if(!strcmp(buf, tmp)) {
                     seq++;
                     sent += len;
-                    end = clock_time();
-                    printf("APP: Latency = %lu msec\n", time_diff(start, end)*1000/CLOCK_SECOND);
+                    printf("Timing: ACKed %lu\n", clock_time());
             }
 #if PMPD_ENABLED == 1
             } else if (ev == pmpd_event) {
@@ -167,6 +171,8 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
             }
         }
         etimer_stop(&et);
+        printf("Timing: end %lu\n", clock_time());
+
     } else {
     	printf("APP: cannot establish connection\n");
     }
