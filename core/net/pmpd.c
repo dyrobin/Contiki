@@ -16,7 +16,7 @@ static struct process* net_pmpd_list[NUM_PROC_PMPD];
 
 static uint8_t tail_pmpd_cache = 0;
 
-#define DEFAULT_MAX_PAYLOAD_PMPD 93
+#define DEFAULT_MAX_PAYLOAD_PMPD 92
 
 static
 uint8_t pmpd_find_pos(const uip_ip6addr_t* dst_addr)
@@ -46,7 +46,7 @@ void pmpd_poll_proc()
 	int i;
 	for (i = 0; i < NUM_PROC_PMPD; i++) {
 		if (net_pmpd_list[i] != NULL) {
-			printf ("pmpd: deliver pmpd event to process '%s'\n", PROCESS_NAME_STRING(net_pmpd_list[i]));
+//			printf ("pmpd: deliver pmpd event to process '%s'\n", PROCESS_NAME_STRING(net_pmpd_list[i]));
 			process_post_synch(net_pmpd_list[i], pmpd_event, NULL);
 		}
 	}
@@ -54,17 +54,17 @@ void pmpd_poll_proc()
 
 uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_payload)
 {
-	printf ("pmpd: ");
+	printf ("pmpd: update %lu\n", clock_time());
 	uip_debug_ipaddr_print(dst_addr);
 
 	uint8_t pos = pmpd_find_pos(dst_addr);
 	if (pos < NUM_CACHE_PMPD) {
 		if (max_payload < net_pmpd_cache[pos].max_payload ) {
 			net_pmpd_cache[pos].max_payload = max_payload;
-			printf(" found in cache and update max_payload(%u)\n", max_payload);
+//			printf(" found in cache and update max_payload(%u)\n", max_payload);
 			return 1;
 		} else {
-			printf("pmpd: error!\n");
+			printf("pmpd: update error!\n");
 			return 0;
 		}
 	}
@@ -72,7 +72,7 @@ uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_pa
 	uip_ip6addr_copy(&net_pmpd_cache[tail_pmpd_cache].dst_node_addr, dst_addr);
 	net_pmpd_cache[tail_pmpd_cache].max_payload = max_payload;
 	tail_pmpd_cache = ( tail_pmpd_cache + 1 ) % NUM_CACHE_PMPD;
-	printf(" not found in cache then add max_payload(%u)\n", max_payload);
+//	printf(" not found in cache then add max_payload(%u)\n", max_payload);
 //	pmpd_debug_cache();
 	return 1;
 }

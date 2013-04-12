@@ -72,12 +72,14 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     static struct etimer et;
 //    static clock_time_t start, end;
 
-    static uint16_t max_payload, sent, data_size;
+    static uint16_t max_payload;
+    static uint16_t	sent, data_size;
     static uint16_t seq, len;
 
     PROCESS_BEGIN();
 
 #if PMPD_ENABLED == 1
+    static uint16_t session_payload = 0;
     if (pmpd_attach_process(process_current)) {
     	printf("APP: attached to pmpd \n");
     } else {
@@ -85,7 +87,6 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     	PROCESS_EXIT();
     }
 #endif
-
 
     uint16_t s = shell_strtolong(data, &nextptr);
 #if PMPD_ENABLED == 0
@@ -95,6 +96,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
     // prepare for sending data
     set_s_addr(s, 1, &dest_addr);
+
     seq = 1; // starting from 1 not 0
 
     conn = udp_new(&dest_addr, UIP_HTONS(3000), NULL);
@@ -109,7 +111,11 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         while(sent < data_size) {
             char buf[MAX_BUF_SIZE];
 #if PMPD_ENABLED == 1
-            max_payload = pmpd_get_max_payload(&dest_addr);
+            if (session_payload == 0) {
+            	max_payload = pmpd_get_max_payload(&dest_addr);
+            } else {
+            	max_payload = session_payload;
+            }
 #endif
 			uint16_t i;
 			for(i = 0; i < max_payload; i++) {
@@ -139,7 +145,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
 
 #if PMPD_ENABLED == 1
             // check pmpd and resend immediately if changed
-            if (max_payload != pmpd_get_max_payload(&dest_addr)) {
+            if (session_payload == 0 && max_payload != pmpd_get_max_payload(&dest_addr)) {
                 printf("APP: resend immediately as max_payload changed!\n");
                 continue;
             }
@@ -157,6 +163,12 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
                 sprintf(tmp, "ACK%03u", seq);
                 printf("APP: seq = %s, ack = %s\n", &tmp[3], &buf[3]);
                 if(!strcmp(buf, tmp)) {
+#if PMPD_ENABLED == 1
+                	// receive first ack then save max_payload
+                	if (seq == 1) {
+                		session_payload = max_payload;
+                	}
+#endif
                     seq++;
                     sent += len;
                     printf("Timing: ACKed %lu\n", clock_time());
@@ -170,6 +182,9 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
             }
         }
         etimer_stop(&et);
+#if PMPD_ENABLED == 1
+        session_payload = 0;
+#endif
         printf("Timing: end %lu\n", clock_time());
 
     } else {
