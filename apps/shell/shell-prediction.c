@@ -35,7 +35,7 @@ static void
 set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
 {
     if(opt == 1) {
-#ifdef DIFF_DOMIAN         
+#ifdef DIFF_DOMAIN
         uip_ip6addr(send_addr, 0xbbbb, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
 #else
         uip_ip6addr(send_addr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
