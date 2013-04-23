@@ -10,7 +10,7 @@
 #endif
 
 #undef 	DIFF_DOMAIN
-#define DIFF_DOMAIN   1
+#define DIFF_DOMAIN   0
 
 #undef 	DIFF_DOMAIN_RECEIVER
 #define DIFF_DOMAIN_RECEIVER 	0

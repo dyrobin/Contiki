@@ -19,87 +19,92 @@
 
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-PROCESS(child_shell_process, "Basic Shell For prediction testing- dodag child");
+PROCESS(child_shell_process,
+        "Basic Shell For prediction testing- dodag child");
 AUTOSTART_PROCESSES(&child_shell_process);
 
 static void
 tcpip_handler(void)
 {
-    char buf[16];
-    char *appdata;
+  char buf[16];
+  char *appdata;
 
-    if(uip_newdata()) {
-        appdata = (char *)uip_appdata;
-        printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], uip_datalen());
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf("\n");
+  if(uip_newdata()) {
+    appdata = (char *)uip_appdata;
+    printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0],
+           appdata[1], appdata[2], uip_datalen());
+    uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+    printf("\n");
 
-        if (appdata[0] == 'h') return;
-        
-        sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
+    if(appdata[0] == 'h')
+      return;
+
+    sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
 
 //        printf("APP: send %s to ", buf);
 //        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
 //        printf("\n");
 
-        uip_ipaddr_copy(&uip_udp_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
-        uip_udp_packet_send(uip_udp_conn, buf, strlen(buf));
-        memset(&uip_udp_conn->ripaddr, 0, sizeof(uip_udp_conn->ripaddr));
-    }
+    uip_ipaddr_copy(&uip_udp_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+    uip_udp_packet_send(uip_udp_conn, buf, strlen(buf));
+    memset(&uip_udp_conn->ripaddr, 0, sizeof(uip_udp_conn->ripaddr));
+  }
 }
 
-#ifndef DIFF_DOMAIN
+#if DIFF_DOMAIN == 0
 static void
 set_global_address(void)
 {
-	uip_ipaddr_t ipaddr;
-	int i;
-	uint8_t state;
+  uip_ipaddr_t ipaddr;
+  int i;
+  uint8_t state;
 
-	uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
-	uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-	uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+  uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 
-	printf("IPv6 addresses: ");
-	for (i = 0; i < UIP_DS6_ADDR_NB; i++) {
-		state = uip_ds6_if.addr_list[i].state;
-		if (uip_ds6_if.addr_list[i].isused
-				&& (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-			uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
-			printf("\n");
-		}
-	}
+  printf("IPv6 addresses: ");
+  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
+    state = uip_ds6_if.addr_list[i].state;
+    if(uip_ds6_if.addr_list[i].isused
+       && (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
+      uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
+      printf("\n");
+    }
+  }
 }
 #endif
 
 PROCESS_THREAD(child_shell_process, ev, data)
 {
-    PROCESS_BEGIN();
-    
+  PROCESS_BEGIN();
+
 #if CONTIKI_TARGET_Z1
-    uart0_set_input(serial_line_input_byte);
+  uart0_set_input(serial_line_input_byte);
 #else
-    uart1_set_input(serial_line_input_byte);
+  uart1_set_input(serial_line_input_byte);
 #endif
 
-    serial_line_init();
-    serial_shell_init();
+  serial_line_init();
+  serial_shell_init();
 
-    shell_prediction_init();
-#ifndef DIFF_DOMAIN  
-    set_global_address();
+  shell_prediction_init();
+
+#if DIFF_DOMAIN == 0
+  set_global_address();
 #endif
-    
-    struct uip_udp_conn *server_conn;
-    server_conn = udp_new(NULL, UIP_HTONS(3001), NULL);
-    udp_bind(server_conn, UIP_HTONS(3000));
 
-    while(1) {
-        PROCESS_YIELD();
-        if(ev == tcpip_event) {
-            tcpip_handler();
-        }
+  struct uip_udp_conn *server_conn;
+
+  server_conn = udp_new(NULL, UIP_HTONS(3001), NULL);
+  udp_bind(server_conn, UIP_HTONS(3000));
+
+  while(1) {
+    PROCESS_YIELD();
+    if(ev == tcpip_event) {
+      tcpip_handler();
     }
+  }
 
-    PROCESS_END();
+  PROCESS_END();
 }

@@ -1230,10 +1230,11 @@ uip_process(uint8_t flag)
       case UIP_PROTO_UDP:
         /* UDP, for both IPv4 and IPv6 */
 
-    	/* IP packet proto filed might be updated?
-         * Add by Yang Deng
+    	/* Should IP packet proto field be updated?
+         * Asked by Yang Deng <yang.deng@aalto.fi>
          */
       	// UIP_IP_BUF->proto = UIP_PROTO_UDP;
+
         goto udp_input;
 #endif /* UIP_UDP */
       case UIP_PROTO_ICMP6:

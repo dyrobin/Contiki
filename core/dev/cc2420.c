@@ -434,6 +434,8 @@ cc2420_transmit(unsigned short payload_len)
      transmitted because of other channel activity. */
   RIMESTATS_ADD(contentiondrop);
   PRINTF("cc2420: do_send() transmission never started\n");
+  printf("cc2420: do_send() transmission never started\n");
+
 
   if(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) > 0) {
     /* Restore the transmission power */

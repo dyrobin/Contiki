@@ -1486,7 +1486,7 @@ output(uip_lladdr_t *localdest)
 
 #if SICSLOWPAN_CONF_FRAG
     num_frag = 0;
-    struct queuebuf *q;
+
     /*
      * The outbound IPv6 packet is too large to fit into a single 15.4
      * packet, so we fragment it into multiple packets and send them.
@@ -1526,24 +1526,36 @@ output(uip_lladdr_t *localdest)
     memcpy(rime_ptr + rime_hdr_len,
            (uint8_t *)UIP_IP_BUF + uncomp_hdr_len, rime_payload_len);
     packetbuf_set_datalen(rime_payload_len + rime_hdr_len);
-   q = queuebuf_new_from_packetbuf();
+
+    /* packetbuf won't be changed if DEBUG_LEVEL is 0
+     * Modified by Yang Deng <yang.deng@aalto.fi>
+     */
+#if DEBUG_LEVEL > 0
+    struct queuebuf *q;
+    q = queuebuf_new_from_packetbuf();
     if(q == NULL) {
       PRINTFO("could not allocate queuebuf for first fragment, dropping packet\n");
       return 0;
     }
+#endif
     send_packet(&dest);
+#if DEBUG_LEVEL > 0
     queuebuf_to_packetbuf(q);
     queuebuf_free(q);
     q = NULL;
+#endif
 
-    //printf("first fragn, tx status is %d\n", last_tx_status);
+    /* No need to check tx, just treat it as normal packet
+     * Modified by Yang Deng <yang.deng@aalto.fi>
+     */
     /* Check tx result. */
-    if((last_tx_status == MAC_TX_COLLISION) ||
-       (last_tx_status == MAC_TX_ERR) ||
-       (last_tx_status == MAC_TX_ERR_FATAL)) {
-      PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-      return 0;
-    }
+//    if((last_tx_status == MAC_TX_COLLISION) ||
+//       (last_tx_status == MAC_TX_ERR) ||
+//       (last_tx_status == MAC_TX_ERR_FATAL)) {
+//      PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+//      return 0;
+//    }
+
     //printf("sicslowpan: ASSEM F1 DONE\n");
 
     /* set processed_ip_out_len to what we already sent from the IP payload*/
@@ -1579,26 +1591,36 @@ output(uip_lladdr_t *localdest)
       memcpy(rime_ptr + rime_hdr_len,
              (uint8_t *)UIP_IP_BUF + processed_ip_out_len, rime_payload_len);
       packetbuf_set_datalen(rime_payload_len + rime_hdr_len);
+
+      /* packetbuf won't be changed if DEBUG_LEVEL is 0
+       * Modified by Yang Deng <yang.deng@aalto.fi>
+       */
+#if DEBUG_LEVEL > 0
       q = queuebuf_new_from_packetbuf();
       if(q == NULL) {
         PRINTFO("could not allocate queuebuf, dropping fragment\n");
         return 0;
       }
+#endif
       send_packet(&dest);
+#if DEBUG_LEVEL > 0
       queuebuf_to_packetbuf(q);
       queuebuf_free(q);
       q = NULL;
+#endif
+
       processed_ip_out_len += rime_payload_len;
 
-      //printf("subsequent fragn, tx status is %d\n", last_tx_status);
+      /* No need to check tx, just treat it as normal packet
+       * Modified by Yang Deng <yang.deng@aalto.fi>
+       */
       /* Check tx result. */
-      if((last_tx_status == MAC_TX_COLLISION) ||
-         (last_tx_status == MAC_TX_ERR) ||
-         (last_tx_status == MAC_TX_ERR_FATAL)) {
-        PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-        return 0;
-      }
-      //printf("sicslowpan: ASSEM FN DONE\n");
+//      if((last_tx_status == MAC_TX_COLLISION) ||
+//         (last_tx_status == MAC_TX_ERR) ||
+//         (last_tx_status == MAC_TX_ERR_FATAL)) {
+//        PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+//        return 0;
+//      }
     }
     printf("sicslowpan: num of fragments = %u\n", num_frag);
 #else /* SICSLOWPAN_CONF_FRAG */

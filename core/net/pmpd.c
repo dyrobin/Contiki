@@ -1,7 +1,7 @@
 /*
  * Path Maximum Payload Discovery Implementation
  *
- * written by Yang Deng, DCS-CSE, Aalto University
+ * Written by Yang Deng <yang.deng@aalto.fi>
  */
 
 

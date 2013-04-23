@@ -164,7 +164,10 @@ typedef unsigned long off_t;
  * SPI bus - CC2420 pin configuration.
  */
 
-#define CC2420_CONF_SYMBOL_LOOP_COUNT 1302	/* 326us msp430X @ 8MHz */
+/* double the loop count as frequency of MCU doubled
+ * Modified by Yang Deng <yang.deng@aalto.fi>
+ */
+#define CC2420_CONF_SYMBOL_LOOP_COUNT (1302 * 2)	/* 326us msp430X @ 16MHz */
 
 /* P1.2 - Input: FIFOP from CC2420 */
 #define CC2420_FIFOP_PORT(type)   P1##type

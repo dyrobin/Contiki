@@ -55,9 +55,6 @@
 
 #include <stdio.h>
 
-#define TX_SENT 0
-#define TX_DROP 1
-
 #define DEBUG 0
 #if DEBUG
 #include <stdio.h>
@@ -137,9 +134,14 @@ default_timebase(void)
   /* If the radio duty cycle has no channel check interval (i.e., it
      does not turn the radio off), we make the retransmission time
      proportional to the configured MAC channel check rate. */
-  if(time == 0) {
-    time = CLOCK_SECOND / NETSTACK_RDC_CHANNEL_CHECK_RATE;
-  }
+
+  /* Ignore following condition to improve the throughput.
+   * Modified by Yang Deng <yang.deng@aalto.fi>
+   */
+
+//  if(time == 0) {
+//    time = CLOCK_SECOND / NETSTACK_RDC_CHANNEL_CHECK_RATE;
+//  }
   return time;
 }
 /*---------------------------------------------------------------------------*/
@@ -163,7 +165,7 @@ transmit_packet_list(void *ptr)
 }
 /*---------------------------------------------------------------------------*/
 static void
-free_first_packet(struct neighbor_queue *n, uint16_t success)
+free_first_packet(struct neighbor_queue *n)
 {
   struct rdc_buf_list *q = list_head(n->queued_packet_list);
   if(q != NULL) {
@@ -174,15 +176,6 @@ free_first_packet(struct neighbor_queue *n, uint16_t success)
     memb_free(&packet_memb, q);
     PRINTF("csma: free_queued_packet, queue length %d\n",
         list_length(n->queued_packet_list));
-    if(success == TX_SENT) {
-//        printf("CSMA: Frame SENT, transmissions = %d, collisions = %d, tx_time = %u\n",
-//            n->transmissions, n->collisions, clock_time() - n->tx_time);
-        printf("CSMA: Frame SENT, transmissions = %d\n", n->transmissions);
-    } else {
-//        printf("CSMA: Frame DROPPED, transmissions = %d, collisions = %d, tx_time = %u\n",
-//            n->transmissions, n->collisions, clock_time() - n->tx_time);
-        printf("CSMA: Frame DROPPED, transmissions = %d\n", n->transmissions);
-    }
     if(list_head(n->queued_packet_list)) {
       /* There is a next packet. We reset current tx information */
       n->transmissions = 0;
@@ -237,9 +230,11 @@ packet_sent(void *ptr, int status, int num_transmissions)
     switch(status) {
     case MAC_TX_COLLISION:
       PRINTF("csma: rexmit collision %d\n", n->transmissions);
+      printf("csma: collision %d\n", n->transmissions);
       break;
     case MAC_TX_NOACK:
       PRINTF("csma: rexmit noack %d\n", n->transmissions);
+      printf("csma: noack %d\n", n->transmissions);
       break;
     default:
       PRINTF("csma: rexmit err %d, %d\n", status, n->transmissions);
@@ -261,7 +256,11 @@ packet_sent(void *ptr, int status, int num_transmissions)
       backoff_transmissions = 3;
     }
 
-    time = time + (random_rand() % (backoff_transmissions * time));
+    /* change backoff base time to 1 tick (about 7.8 ms)
+     * Modified by Yang Deng <yang.deng@aalto.fi>
+     */
+//    time = time + (random_rand() % (backoff_transmissions * time));
+    time = time + (random_rand() % (backoff_transmissions));
 
     if(n->transmissions < metadata->max_transmissions) {
       PRINTF("csma: retransmitting with time %lu %p\n", time, q);
@@ -274,20 +273,19 @@ packet_sent(void *ptr, int status, int num_transmissions)
     } else {
       PRINTF("csma: drop with status %d after %d transmissions, %d collisions\n",
              status, n->transmissions, n->collisions);
-      //printf("csma: drop with status %d after %d transmissions, %d collisions\n",
-        //     status, n->transmissions, n->collisions);
-      free_first_packet(n, TX_DROP);
+      printf("csma: Frame DROPPED %d\n", n->transmissions);
+      free_first_packet(n);
       mac_call_sent_callback(sent, cptr, status, num_tx);
     }
   } else {
     if(status == MAC_TX_OK) {
       PRINTF("csma: rexmit ok %d\n", n->transmissions);
-      //printf("csma: rexmit ok %d\n", n->transmissions);
+      printf("csma: Frame SENT %d\n", n->transmissions);
     } else {
       PRINTF("csma: rexmit failed %d: %d\n", n->transmissions, status);
-      //printf("csma: rexmit failed %d: %d\n", n->transmissions, status);
+      printf("csma: failed %d\n", n->transmissions);
     }
-    free_first_packet(n, TX_SENT);
+    free_first_packet(n);
     mac_call_sent_callback(sent, cptr, status, num_tx);
   }
 }
