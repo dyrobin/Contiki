@@ -1,9 +1,0 @@
-case1: Wi-Fi No limit
-case2: Wi-Fi rate_limit 500K
-case3: Wi-Fi rate_limit 600K
-case4: Wi-Fi rate_limit 700K
-case5: Wi-Fi rate_limit 800K
-case6: Wi-Fi rate_limit 900K
-case7: Wi-Fi rate_limit 1000K
-case8: Wi-Fi rate_limit 1100K
-
