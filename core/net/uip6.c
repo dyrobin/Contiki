@@ -1099,11 +1099,18 @@ uip_process(uint8_t flag)
     goto drop;
   }
   
-  PRINTF("IPv6 packet received from ");
+  /*PRINTF("IPv6 packet received from ");
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
   PRINTF(" to ");
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
-  PRINTF("\n");
+  PRINTF("\n");*/
+
+  printf("IPv6 packet received from ");
+  uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+  printf(" to ");
+  uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+  printf("\n");
+
 
   if(uip_is_addr_mcast(&UIP_IP_BUF->srcipaddr)){
     UIP_STAT(++uip_stat.ip.drop);

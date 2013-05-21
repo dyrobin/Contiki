@@ -356,8 +356,10 @@ cc2420_transmit(unsigned short payload_len)
     txpower = cc2420_get_txpower();
     /* Set the specified transmission power */
     set_txpower(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) - 1);
+    printf("TX Power(transmit): %d\n", packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) - 1);
   }
-
+  printf("TX Power(transmit-1): %d\n", packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) - 1);
+  printf("TX Power(default): %d\n", cc2420_get_txpower());
   total_len = payload_len + AUX_LEN;
   
   /* The TX FIFO can only hold one packet. Make sure to not overrun
@@ -728,6 +730,8 @@ cc2420_read(void *buf, unsigned short bufsize)
 
     packetbuf_set_attr(PACKETBUF_ATTR_RSSI, cc2420_last_rssi);
     packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, cc2420_last_correlation);
+    printf("RSSI: %d ", cc2420_last_rssi - 45);
+    printf("LQI: %d\n\n", cc2420_last_correlation);
 
     RIMESTATS_ADD(llrx);
 

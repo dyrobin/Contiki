@@ -34,9 +34,9 @@ tcpip_handler(void)
     if(uip_newdata()) {
         if(uip_datalen() > 4) {        
             appdata = (char *)uip_appdata;
-           // printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
-           // uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-           // printf("\n");
+            printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
+            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+            printf("\n");
             leds_toggle(LEDS_GREEN);
 //            conn = udp_new(&UIP_IP_BUF->srcipaddr, UIP_HTONS(1729), NULL);
 //            sprintf(buf, "OK");
@@ -56,7 +56,7 @@ set_global_address(void)
   int i;
   uint8_t state;
 
-  uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+  uip_ip6addr(&ipaddr, 0xbbbb, 0, 0, 0, 0, 0, 0, 0);
   uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
   uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
 

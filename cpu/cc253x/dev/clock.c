@@ -85,12 +85,14 @@ clock_wait(clock_time_t i)
 CCIF clock_time_t
 clock_time(void)
 {
+  printf("in cpu/cc253x/dev/clock.c-clock_time func.\n");
   return count;
 }
 /*---------------------------------------------------------------------------*/
 CCIF unsigned long
 clock_seconds(void)
 {
+  printf("in cpu/cc253x/dev/clock.c-clock_seconds func.\n");
   return seconds;
 }
 /*---------------------------------------------------------------------------*/

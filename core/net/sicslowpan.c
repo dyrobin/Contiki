@@ -1790,7 +1790,7 @@ input(void)
       PRINTF("\n");
     }
 #endif
-/* for testing purpose */
+/* for testing purpose 
  {   
     struct uip_udp_hdr *udp_buf = NULL;
     if(UIP_IP_BUF->proto == UIP_PROTO_UDP) {
@@ -1803,10 +1803,10 @@ input(void)
     }
     if (udp_buf && udp_buf->destport == UIP_HTONS(1729)) {
       char *payload = ((char *)udp_buf) + 8;
-      printf("packet no: %c%c%c%c received of %d length\n\n", payload[0], payload[1], payload[2], payload[3], uip_len);
+      printf("packet no: %c%c%c%c received of %d length ", payload[0], payload[1], payload[2], payload[3], uip_len);
     } 
   }
-/*end of testing code*/
+end of testing code*/
 
 
 #if SICSLOWPAN_CONF_NEIGHBOR_INFO
@@ -1847,12 +1847,12 @@ sicslowpan_init(void)
 #if SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS > 0 
   addr_contexts[0].used   = 1;
   addr_contexts[0].number = 0;
-#ifdef SICSLOWPAN_CONF_ADDR_CONTEXT_0
-	SICSLOWPAN_CONF_ADDR_CONTEXT_0;
-#else
-  addr_contexts[0].prefix[0] = 0xaa; 
-  addr_contexts[0].prefix[1] = 0xaa;
-#endif
+//#ifdef SICSLOWPAN_CONF_ADDR_CONTEXT_0
+//	SICSLOWPAN_CONF_ADDR_CONTEXT_0;
+//#else
+  addr_contexts[0].prefix[0] = 0xbb; 
+  addr_contexts[0].prefix[1] = 0xbb;
+//#endif
 #endif /* SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS > 0 */
 
 #if SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS > 1

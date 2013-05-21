@@ -123,7 +123,7 @@ typedef unsigned long off_t;
 #define CFS_XMEM_CONF_OFFSET    (2 * XMEM_ERASE_UNIT_SIZE)
 #define CFS_XMEM_CONF_SIZE      (1 * XMEM_ERASE_UNIT_SIZE)
 
-#define CFS_RAM_CONF_SIZE 4096
+#define CFS_RAM_CONF_SIZE  4096
 
 /*
  * SPI bus configuration for the TMote Sky.

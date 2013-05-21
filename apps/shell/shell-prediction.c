@@ -1,9 +1,12 @@
+
+
 #include "contiki.h"
 #include "shell.h"
 #include "uip.h"
 #include "net/uip-ds6.h"
 #include <string.h>
 #include <stdio.h>
+
 
 #define MAX_BUF_SIZE 452
 
@@ -29,7 +32,7 @@ static void
 set_s_addr(uint16_t s, uint16_t opt, uip_ipaddr_t *send_addr)
 {
     if(opt == 1) {
-        uip_ip6addr(send_addr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
+        uip_ip6addr(send_addr, 0xbbbb, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, s);
     } else {
         uint16_t hexanum = 0x7400;
         uint16_t var1, var2;
@@ -48,9 +51,10 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     uint16_t s, opt;
     static uint16_t size,sec;
     static uint16_t i,j;
+	
 
     PROCESS_BEGIN();
-    
+//    powertrace_start(CLOCK_SECOND * 2);
     s = shell_strtolong(data, &nextptr);
    // opt = shell_strtolong(nextptr, &nextptr);
     size = shell_strtolong(nextptr, &nextptr);
@@ -60,7 +64,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     set_s_addr(s, 1, &dest_addr); 
      
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
-    for(i=0; i<1000; i++) {
+    for(i=0; i<500; i++) {
         char buf[MAX_BUF_SIZE];
         for(j=0; j<size; j++) {
             buf[j] = '0'+(j%8);
@@ -70,7 +74,7 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         buf[4] = '0';
         printf("sending %d packet strlen buf %d\n", i, strlen(buf));
         uip_udp_packet_send(conn, buf, strlen(buf));
-        etimer_set(&et, CLOCK_SECOND*sec);
+        etimer_set(&et, sec);
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
     }
     

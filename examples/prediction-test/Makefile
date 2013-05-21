@@ -1,5 +1,8 @@
 all: root child
-APPS=serial-shell
+
+APPS += serial-shell
+APPS += powertrace
+
 CONTIKI=../../
 
 WITH_UIP6=1
