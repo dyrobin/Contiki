@@ -44,8 +44,21 @@
 #include "net/mac/mac.h"
 #include "dev/radio.h"
 
+/* For link test. Added by Yang Deng <yang.deng@aalto.fi>
+ */
+#define LINK_TEST 1
+
 extern const struct mac_driver csma_driver;
 
 const struct mac_driver *csma_init(const struct mac_driver *r);
+
+#if LINK_TEST == 1
+#include "contiki.h"
+
+extern process_event_t frame_event;
+
+void attach_csma();
+void detach_csma();
+#endif
 
 #endif /* __CSMA_H__ */

@@ -79,6 +79,12 @@
 #error Change CSMA_CONF_MAX_MAC_TRANSMISSIONS in contiki-conf.h or in your Makefile.
 #endif /* CSMA_CONF_MAX_MAC_TRANSMISSIONS < 1 */
 
+
+#if LINK_TEST == 1
+process_event_t frame_event;
+static struct process* saved_proc;
+#endif
+
 /* Packet metadata */
 struct qbuf_metadata {
   mac_callback_t sent;
@@ -280,6 +286,10 @@ packet_sent(void *ptr, int status, int num_transmissions)
         //     status, n->transmissions, n->collisions);
       free_first_packet(n, TX_DROP);
       mac_call_sent_callback(sent, cptr, status, num_tx);
+
+#if LINK_TEST == 1
+      if (saved_proc) process_post(saved_proc, frame_event, NULL);
+#endif
     }
   } else {
     if(status == MAC_TX_OK) {
@@ -291,6 +301,10 @@ packet_sent(void *ptr, int status, int num_transmissions)
     }
     free_first_packet(n, TX_SENT);
     mac_call_sent_callback(sent, cptr, status, num_tx);
+
+#if LINK_TEST == 1
+    if (saved_proc) process_post(saved_proc, frame_event, NULL);
+#endif
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -419,8 +433,25 @@ init(void)
   memb_init(&packet_memb);
   memb_init(&metadata_memb);
   memb_init(&neighbor_memb);
+
+  /* for link test. Added by Yang Deng <yang.deng@aalto.fi>
+  */
+  frame_event = process_alloc_event();
 }
 /*---------------------------------------------------------------------------*/
+
+#if LINK_TEST == 1
+void attach_csma()
+{
+    saved_proc = PROCESS_CURRENT();
+}
+
+void detach_csma()
+{
+    saved_proc = NULL;
+}
+#endif
+
 const struct mac_driver csma_driver = {
   "CSMA",
   init,

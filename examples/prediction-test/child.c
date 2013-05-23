@@ -34,7 +34,7 @@ tcpip_handler(void)
     if(uip_newdata()) {
         if(uip_datalen() > 4) {        
             appdata = (char *)uip_appdata;
-            printf("data no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
+            printf("packet no: %c%c%c%c recieved of size %d from ", appdata[0], appdata[1], appdata[2], appdata[3], uip_datalen());
             uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
             printf("\n");
             leds_toggle(LEDS_GREEN);

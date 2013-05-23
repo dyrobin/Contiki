@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "net/mac/csma.h"
+
 
 #define MAX_BUF_SIZE 452
 
@@ -60,11 +62,21 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
     size = shell_strtolong(nextptr, &nextptr);
     sec = shell_strtolong(nextptr, &nextptr);
 
+    attach_csma();
     //set_s_addr(s, opt, &dest_addr); 
     set_s_addr(s, 1, &dest_addr); 
      
     conn = udp_new(&dest_addr, UIP_HTONS(1729), NULL);
+
+    uip_udp_packet_send(conn, "trigger", 7);
     for(i=0; i<500; i++) {
+        PROCESS_WAIT_EVENT_UNTIL(ev == frame_event);
+	
+        if (sec) {
+          etimer_set(&et, sec);
+          PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+        }
+        
         char buf[MAX_BUF_SIZE];
         for(j=0; j<size; j++) {
             buf[j] = '0'+(j%8);
@@ -73,11 +85,12 @@ PROCESS_THREAD(shell_send_udp_process, ev, data)
         sprintf(buf,"%4d", i);
         buf[4] = '0';
         printf("sending %d packet strlen buf %d\n", i, strlen(buf));
+        
         uip_udp_packet_send(conn, buf, strlen(buf));
-        etimer_set(&et, sec);
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
     }
-    
+
+    detach_csma();
+
     PROCESS_END();
 }
 
