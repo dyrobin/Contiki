@@ -1664,8 +1664,6 @@ input(void)
   /* tag of the fragment */
   uint16_t frag_tag = 0;
   uint8_t first_fragment = 0, last_fragment = 0;
-  clock_time_t ctime;
-  unsigned short ftime;
 #endif /*SICSLOWPAN_CONF_FRAG*/
 
   static uint8_t  frag_flag = 0;
@@ -1682,7 +1680,8 @@ input(void)
   if(timer_expired(&reass_timer)) {
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
-    if (frag_flag) {   
+    if (frag_flag) {
+    	printf("siclowpan: frag timer expired.\n");
         frag_flag = 0;
     }
   }
@@ -1693,10 +1692,7 @@ input(void)
   switch((GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0xf800) >> 8) {
     case SICSLOWPAN_DISPATCH_FRAG1:
       PRINTFI("sicslowpan input: FRAG1 ");
-      ctime = clock_time();
-      ftime = clock_fine();
-      printf("sicslowpan: REASS START %lu ", ctime);
-      printf("%u \n", ftime);
+
       frag_offset = 0;
 /*       frag_size = (uip_ntohs(RIME_FRAG_BUF->dispatch_size) & 0x07ff); */
       frag_size = GET16(RIME_FRAG_PTR, RIME_FRAG_DISPATCH_SIZE) & 0x07ff;
@@ -1750,7 +1746,7 @@ input(void)
        * being reassembled or the packet is not a fragment.
        */
       PRINTFI("sicslowpan input: Dropping 6lowpan packet that is not a fragment of the packet currently being reassembled\n");
-      //printf("sicslowpan input: Dropping 6lowpan packet that is not a fragment of the packet currently being reassembled\n");
+      printf("sicslowpan input: Drop packet not being reassembled\n");
 
       return;
     }
@@ -1762,6 +1758,12 @@ input(void)
     if((frag_size > 0) && (frag_size <= UIP_BUFSIZE)) {
       sicslowpan_len = frag_size;
       reass_tag = frag_tag;
+
+      // ftime = clock_fine();
+      printf("sicslowpan: %lu REASS START from ", clock_time());
+      uip_debug_lladdr_print(packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      printf("\n");
+
       timer_set(&reass_timer, SICSLOWPAN_REASS_MAXAGE * CLOCK_SECOND / 16);
       PRINTFI("sicslowpan input: INIT FRAGMENTATION (len %d, tag %d)\n",
              sicslowpan_len, reass_tag);
@@ -1823,7 +1825,7 @@ input(void)
    */
   if(packetbuf_datalen() < rime_hdr_len) {
     PRINTF("SICSLOWPAN: packet dropped due to header > total packet\n");
-    printf("SICSLOWPAN: packet dropped due to header > total packet\n");
+    printf("sicslowpan: packet dropped due to header > total packet\n");
     return;
   }
   rime_payload_len = packetbuf_datalen() - rime_hdr_len;
@@ -1867,21 +1869,14 @@ input(void)
    */
   PRINTF("sicslowpan_init processed_ip_in_len %d, sicslowpan_len %d\n",
          processed_ip_in_len, sicslowpan_len);
-  //printf("sicslowpan_init processed_ip_in_len %d, sicslowpan_len %d\n",
-    //     processed_ip_in_len, sicslowpan_len);
   if(processed_ip_in_len == 0 || (processed_ip_in_len == sicslowpan_len)) {
+	if(frag_flag) {
+		//ftime = clock_fine();
+		printf("sicslowpan: %lu REASS END num %u\n", clock_time(), fragn_flag + frag_flag);
+	}
     PRINTFI("sicslowpan input: IP packet ready (length %d)\n",
            sicslowpan_len);
-    //printf("sicslowpan input: IP packet ready (length %d)\n",
-    //       sicslowpan_len);
-    if(frag_flag) {
-        ctime = clock_time();
-        ftime = clock_fine();
-        printf("sicslowpan: REASS END %lu ", ctime);
 
-        printf("%u N ", ftime); 
-        printf("%u\n", fragn_flag + frag_flag);
-    }
     memcpy((uint8_t *)UIP_IP_BUF, (uint8_t *)SICSLOWPAN_IP_BUF, sicslowpan_len);
     uip_len = sicslowpan_len;
     sicslowpan_len = 0;

@@ -19,7 +19,7 @@
 
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-PROCESS(root_shell_process, "basic Shell For prediction testing- dodag root");
+PROCESS(root_shell_process, "PMPD test - dodag root");
 AUTOSTART_PROCESSES(&root_shell_process);
 
 #if DIFF_DOMAIN == 0

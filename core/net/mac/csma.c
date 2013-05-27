@@ -273,14 +273,18 @@ packet_sent(void *ptr, int status, int num_transmissions)
     } else {
       PRINTF("csma: drop with status %d after %d transmissions, %d collisions\n",
              status, n->transmissions, n->collisions);
-      printf("csma: Frame DROPPED %d\n", n->transmissions);
+      printf("csma: Frame DROPPED %d to ", n->transmissions);
+      uip_debug_lladdr_print(&n->addr);
+      printf("\n");
       free_first_packet(n);
       mac_call_sent_callback(sent, cptr, status, num_tx);
     }
   } else {
     if(status == MAC_TX_OK) {
       PRINTF("csma: rexmit ok %d\n", n->transmissions);
-      printf("csma: Frame SENT %d\n", n->transmissions);
+      printf("csma: Frame SENT %d to ", n->transmissions);
+      uip_debug_lladdr_print(&n->addr);
+      printf("\n");
     } else {
       PRINTF("csma: rexmit failed %d: %d\n", n->transmissions, status);
       printf("csma: failed %d\n", n->transmissions);

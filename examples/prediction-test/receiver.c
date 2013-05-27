@@ -20,7 +20,7 @@
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
 PROCESS(child_shell_process,
-        "Basic Shell For prediction testing- dodag child");
+        "PMPD test - dodag child");
 AUTOSTART_PROCESSES(&child_shell_process);
 
 static void
