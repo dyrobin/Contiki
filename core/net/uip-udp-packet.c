@@ -50,13 +50,12 @@ void
 uip_udp_packet_send(struct uip_udp_conn *c, const void *data, int len)
 {
 #if UIP_UDP
-  uint16_t  max_payload_size;
-  max_payload_size = UIP_BUFSIZE - UIP_LLH_LEN - UIP_IPUDPH_LEN;
   if(data != NULL) {
     uip_udp_conn = c;
-    uip_slen = len > max_payload_size? max_payload_size: len;
+    uip_slen = len;
     memcpy(&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN], data,
-           uip_slen);
+           len > UIP_BUFSIZE - UIP_LLH_LEN - UIP_IPUDPH_LEN?
+           UIP_BUFSIZE - UIP_LLH_LEN - UIP_IPUDPH_LEN: len);
     uip_process(UIP_UDP_SEND_CONN);
 #if UIP_CONF_IPV6
     tcpip_ipv6_output();

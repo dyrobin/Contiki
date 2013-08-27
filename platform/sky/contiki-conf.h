@@ -9,8 +9,6 @@
 #include "platform-conf.h"
 #endif /* PLATFORM_CONF_H */
 
-#define NULLRDC_802154_AUTOACK           1
-
 #ifndef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC     csma_driver
 #endif /* NETSTACK_CONF_MAC */
@@ -142,9 +140,9 @@
 #ifndef UIP_CONF_DS6_NBR_NBU
 #define UIP_CONF_DS6_NBR_NBU     20
 #endif /* UIP_CONF_DS6_NBR_NBU */
-#ifndef UIP_CONF_DS6_ROUTE_NBU
-#define UIP_CONF_DS6_ROUTE_NBU   20
-#endif /* UIP_CONF_DS6_ROUTE_NBU */
+#ifndef UIP_CONF_MAX_ROUTES
+#define UIP_CONF_MAX_ROUTES   20
+#endif /* UIP_CONF_MAX_ROUTES */
 
 #define UIP_CONF_ND6_SEND_RA		0
 #define UIP_CONF_ND6_REACHABLE_TIME     600000
@@ -171,7 +169,7 @@
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
 #ifndef SICSLOWPAN_CONF_FRAG
 #define SICSLOWPAN_CONF_FRAG                    1
-#define SICSLOWPAN_CONF_MAXAGE                  48
+#define SICSLOWPAN_CONF_MAXAGE                  8
 #endif /* SICSLOWPAN_CONF_FRAG */
 #define SICSLOWPAN_CONF_CONVENTIONAL_MAC	1
 #define SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS       2

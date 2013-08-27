@@ -315,9 +315,9 @@ uip_ds6_addr_t *uip_ds6_get_global(int8_t state);
 
 /** \name Multicast address list basic routines */
 /** @{ */
-uip_ds6_maddr_t *uip_ds6_maddr_add(uip_ipaddr_t *ipaddr);
+uip_ds6_maddr_t *uip_ds6_maddr_add(const uip_ipaddr_t *ipaddr);
 void uip_ds6_maddr_rm(uip_ds6_maddr_t *maddr);
-uip_ds6_maddr_t *uip_ds6_maddr_lookup(uip_ipaddr_t *ipaddr);
+uip_ds6_maddr_t *uip_ds6_maddr_lookup(const uip_ipaddr_t *ipaddr);
 
 /** @} */
 
@@ -370,5 +370,16 @@ uint32_t uip_ds6_compute_reachable_time(void); /** \brief compute random reachab
 #define uip_ds6_is_my_aaddr(addr) (uip_ds6_aaddr_lookup(addr) != NULL)
 /** @} */
 /** @} */
+
+/**
+ * \brief
+ *     This searches inside the neighbor table for the neighbor that is about to
+ *     expire the next.
+ *
+ * \return
+ *     A reference to the neighbor about to expire the next or NULL if
+ *     table is empty.
+ */
+uip_ds6_nbr_t *uip_ds6_get_least_lifetime_neighbor(void);
 
 #endif /* __UIP_DS6_H__ */

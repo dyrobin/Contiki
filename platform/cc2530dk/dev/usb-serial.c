@@ -104,20 +104,20 @@ static uint8_t buffered_data = 0;
 #endif
 
 /* Callback to the input handler */
-static int (*input_handler)(unsigned char c);
+static int (* input_handler)(unsigned char c);
 /*---------------------------------------------------------------------------*/
 uint8_t *
 usb_class_get_string_descriptor(uint16_t lang, uint8_t string)
 {
   switch (string) {
   case 0:
-    return (uint8_t *) &lang_id;
+    return (uint8_t *)&lang_id;
   case 1:
-    return (uint8_t *) &string_manufacturer;
+    return (uint8_t *)&string_manufacturer;
   case 2:
-    return (uint8_t *) &string_product;
+    return (uint8_t *)&string_product;
   case 3:
-    return (uint8_t *) &string_serial_nr;
+    return (uint8_t *)&string_serial_nr;
   default:
     return NULL;
   }
@@ -168,6 +168,16 @@ do_work(void)
   }
   if(events & USB_EVENT_RESET) {
     enabled = 0;
+  }
+
+  events = usb_cdc_acm_get_events();
+  if(events & USB_CDC_ACM_LINE_STATE) {
+    uint8_t line_state = usb_cdc_acm_get_line_state();
+    if(line_state & USB_CDC_ACM_DTE) {
+      enabled = 1;
+    } else {
+      enabled = 0;
+    }
   }
 
   if(!enabled) {
@@ -254,6 +264,7 @@ PROCESS_THREAD(usb_serial_process, ev, data)
   usb_setup();
   usb_cdc_acm_setup();
   usb_set_global_event_process(&usb_serial_process);
+  usb_cdc_acm_set_event_process(&usb_serial_process);
   usb_set_ep_event_process(EPIN, &usb_serial_process);
   usb_set_ep_event_process(EPOUT, &usb_serial_process);
 
@@ -271,7 +282,7 @@ PROCESS_THREAD(usb_serial_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-usb_serial_set_input(int (*input)(unsigned char c))
+usb_serial_set_input(int (* input)(unsigned char c))
 {
   input_handler = input;
 }
