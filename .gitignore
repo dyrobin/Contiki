@@ -23,6 +23,7 @@
 *.atari
 *.c128
 *.c64
+*.cc2538dk
 *.report
 summary
 *.summary
@@ -65,6 +66,10 @@ contiki-cc2530dk.lib
 *.banks
 *.sensinode
 *.cc2530dk
+
+# Eclipse
+*.project
+*.cproject
 
 # VC++ build artifacts
 *.exp
