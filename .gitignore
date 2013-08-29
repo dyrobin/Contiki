@@ -63,6 +63,10 @@ contiki-cc2530dk.lib
 *.sensinode
 *.cc2530dk
 
+# Eclipse
+*.project
+*.cproject
+
 # VC++ build artifacts
 *.exp
 *.ilk
