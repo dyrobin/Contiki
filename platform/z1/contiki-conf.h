@@ -85,7 +85,7 @@
 #define XMAC_CONF_COMPOWER               1
 #define CXMAC_CONF_COMPOWER              1
 
-#define COLLECT_NEIGHBOR_CONF_MAX_NEIGHBORS      32
+#define COLLECT_NBR_TABLE_CONF_MAX_NEIGHBORS      32
 
 #define QUEUEBUF_CONF_NUM          8
 
@@ -94,10 +94,10 @@
 #define PACKETBUF_CONF_ATTRS_INLINE 1
 
 #ifndef RF_CHANNEL
-#define RF_CHANNEL              16
+#define RF_CHANNEL              26
 #endif /* RF_CHANNEL */
 
-#define IEEE802154_CONF_PANID       0xABCE
+#define IEEE802154_CONF_PANID       0xABCD
 
 #define SHELL_VARS_CONF_RAM_BEGIN 0x1100
 #define SHELL_VARS_CONF_RAM_END 0x2000
@@ -135,9 +135,9 @@
 #define UIP_CONF_IPV6_RPL               1
 
 /* Handle 10 neighbors */
-#define UIP_CONF_DS6_NBR_NBU     6
+#define NBR_TABLE_CONF_MAX_NEIGHBORS     5
 /* Handle 10 routes    */
-#define UIP_CONF_DS6_ROUTE_NBU   6
+#define UIP_CONF_MAX_ROUTES   5
 
 #define UIP_CONF_ND6_SEND_RA		0
 #define UIP_CONF_ND6_REACHABLE_TIME     600000
@@ -149,10 +149,9 @@
 #define UIP_CONF_IPV6_REASSEMBLY        0
 #define UIP_CONF_NETIF_MAX_ADDRESSES    3
 #define UIP_CONF_ND6_MAX_PREFIXES       3
-#define UIP_CONF_ND6_MAX_NEIGHBORS      4
 #define UIP_CONF_ND6_MAX_DEFROUTERS     2
 #define UIP_CONF_IP_FORWARD             0
-#define UIP_CONF_BUFFER_SIZE		500
+#define UIP_CONF_BUFFER_SIZE		140
 
 #define SICSLOWPAN_CONF_COMPRESSION_IPV6        0
 #define SICSLOWPAN_CONF_COMPRESSION_HC1         1
@@ -160,7 +159,7 @@
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
 #ifndef SICSLOWPAN_CONF_FRAG
 #define SICSLOWPAN_CONF_FRAG                    1
-#define SICSLOWPAN_CONF_MAXAGE                  48
+#define SICSLOWPAN_CONF_MAXAGE                  8
 #endif /* SICSLOWPAN_CONF_FRAG */
 #ifndef SICSLOWPAN_CONF_MAX_MAC_TRANSMISSIONS
 #define SICSLOWPAN_CONF_MAX_MAC_TRANSMISSIONS   3
