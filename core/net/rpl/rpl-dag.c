@@ -57,6 +57,7 @@
 
 #include "net/neighbor-info.h"
 
+#if UIP_CONF_IPV6
 /*---------------------------------------------------------------------------*/
 extern rpl_of_t RPL_OF;
 static rpl_of_t * const objective_functions[] = {&RPL_OF};
@@ -335,18 +336,29 @@ check_prefix(rpl_prefix_t *last_prefix, rpl_prefix_t *new_prefix)
 int
 rpl_set_prefix(rpl_dag_t *dag, uip_ipaddr_t *prefix, unsigned len)
 {
+  rpl_prefix_t last_prefix;
+  uint8_t last_len = dag->prefix_info.length;
+  
   if(len > 128) {
     return 0;
   }
-
+  if(dag->prefix_info.length != 0) {
+    memcpy(&last_prefix, &dag->prefix_info, sizeof(rpl_prefix_t));
+  }
   memset(&dag->prefix_info.prefix, 0, sizeof(dag->prefix_info.prefix));
   memcpy(&dag->prefix_info.prefix, prefix, (len + 7) / 8);
   dag->prefix_info.length = len;
   dag->prefix_info.flags = UIP_ND6_RA_FLAG_AUTONOMOUS;
   PRINTF("RPL: Prefix set - will announce this in DIOs\n");
   /* Autoconfigure an address if this node does not already have an address
-     with this prefix. */
-  check_prefix(NULL, &dag->prefix_info);
+     with this prefix. Otherwise, update the prefix */
+  if(last_len == 0) {
+    PRINTF("rpl_set_prefix - prefix NULL\n");
+    check_prefix(NULL, &dag->prefix_info);
+  } else { 
+    PRINTF("rpl_set_prefix - prefix NON-NULL\n");
+    check_prefix(&last_prefix, &dag->prefix_info);
+  }
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -505,8 +517,10 @@ rpl_add_parent(rpl_dag_t *dag, rpl_dio_t *dio, uip_ipaddr_t *addr)
   p->dag = dag;
   p->rank = dio->rank;
   p->dtsn = dio->dtsn;
-  p->link_metric = INITIAL_LINK_METRIC;
+  p->link_metric = RPL_INIT_LINK_METRIC;
+#if RPL_DAG_MC != RPL_DAG_MC_NONE
   memcpy(&p->mc, &dio->mc, sizeof(p->mc));
+#endif /* RPL_DAG_MC != RPL_DAG_MC_NONE */
   list_add(dag->parents, p);
   return p;
 }
@@ -618,7 +632,7 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
   instance->of->update_metric_container(instance);
   /* Update the DAG rank. */
   best_dag->rank = instance->of->calculate_rank(best_dag->preferred_parent, 0);
-  if(best_dag->rank < best_dag->min_rank) {
+  if(last_parent == NULL || best_dag->rank < best_dag->min_rank) {
     best_dag->min_rank = best_dag->rank;
   } else if(!acceptable_rank(best_dag, best_dag->rank)) {
     PRINTF("RPL: New rank unacceptable!\n");
@@ -691,7 +705,9 @@ rpl_remove_parent(rpl_dag_t *dag, rpl_parent_t *parent)
 void
 rpl_nullify_parent(rpl_dag_t *dag, rpl_parent_t *parent)
 {
-  if(parent == dag->preferred_parent) {
+  /* This function can be called when the preferred parent is NULL, so we
+     need to handle this condition in order to trigger uip_ds6_defrt_rm. */
+  if(parent == dag->preferred_parent || dag->preferred_parent == NULL) {
     dag->preferred_parent = NULL;
     dag->rank = INFINITE_RANK;
     if(dag->joined) {
@@ -1015,11 +1031,13 @@ rpl_recalculate_ranks(void)
    * than RPL protocol messages. This periodical recalculation is called
    * from a timer in order to keep the stack depth reasonably low.
    */
-  for(instance = &instance_table[0], end = instance + RPL_MAX_INSTANCES; instance < end; ++instance) {
+  for(instance = &instance_table[0], end = instance + RPL_MAX_INSTANCES;
+      instance < end; ++instance) {
     if(instance->used) {
       for(i = 0; i < RPL_MAX_DAG_PER_INSTANCE; i++) {
         if(instance->dag_table[i].used) {
-          for(p = list_head(instance->dag_table[i].parents); p != NULL; p = p->next) {
+          for(p = list_head(instance->dag_table[i].parents);
+              p != NULL; p = p->next) {
             if(p->updated) {
               p->updated = 0;
               if(!rpl_process_parent_event(instance, p)) {
@@ -1109,6 +1127,13 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
 	RPL_LOLLIPOP_INCREMENT(dag->version);
 	rpl_reset_dio_timer(instance);
       } else {
+        PRINTF("RPL: Global Repair\n");
+        if(dio->prefix_info.length != 0) {
+          if(dio->prefix_info.flags & UIP_ND6_RA_FLAG_AUTONOMOUS) {
+            PRINTF("RPL : Prefix announced in DIO\n");
+            rpl_set_prefix(dag, &dio->prefix_info.prefix, dio->prefix_info.length);
+          }
+        }
 	global_repair(from, dag, dio);
       }
       return;
@@ -1122,13 +1147,6 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
 	return;
       }
     }
-  }
-
-  if(dio->rank == INFINITE_RANK) {
-    PRINTF("RPL: Ignoring DIO from node with infinite rank: ");
-    PRINT6ADDR(from);
-    PRINTF("\n");
-    return;
   }
 
   if(instance == NULL) {
@@ -1150,6 +1168,14 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
     return;
   } else if(dio->rank == INFINITE_RANK && dag->joined) {
     rpl_reset_dio_timer(instance);
+  }
+  
+  /* Prefix Information Option treated to add new prefix */
+  if(dio->prefix_info.length != 0) {
+    if(dio->prefix_info.flags & UIP_ND6_RA_FLAG_AUTONOMOUS) {
+      PRINTF("RPL : Prefix announced in DIO\n");
+      rpl_set_prefix(dag, &dio->prefix_info.prefix, dio->prefix_info.length);
+    }
   }
 
   if(dag->rank == ROOT_RANK(instance)) {
@@ -1211,7 +1237,9 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
 
   /* We have allocated a candidate parent; process the DIO further. */
 
+#if RPL_DAG_MC != RPL_DAG_MC_NONE
   memcpy(&p->mc, &dio->mc, sizeof(p->mc));
+#endif /* RPL_DAG_MC != RPL_DAG_MC_NONE */
   if(rpl_process_parent_event(instance, p) == 0) {
     PRINTF("RPL: The candidate parent is rejected\n");
     return;
@@ -1223,7 +1251,11 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
       RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
       rpl_schedule_dao(instance);
     }
+    /* We received a new DIO from our preferred parent.
+     * Call uip_ds6_defrt_add to set a fresh value for the lifetime counter */
+    uip_ds6_defrt_add(from, RPL_LIFETIME(instance, instance->default_lifetime));
   }
   p->dtsn = dio->dtsn;
 }
 /*---------------------------------------------------------------------------*/
+#endif /* UIP_CONF_IPV6 */

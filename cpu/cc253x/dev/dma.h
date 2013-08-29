@@ -95,9 +95,8 @@
 /* Descriptor Byte 7, Bits[3:0] */
 #define DMA_IRQ_MASK_ENABLE  0x08
 #define DMA_MODE_7_BIT       0x04
-#define DMA_PRIO_HIGHEST     0x03
 #define DMA_PRIO_HIGH        0x02
-#define DMA_PRIO_GUARANTEED  0x01
+#define DMA_PRIO_ASSURED     0x01
 #define DMA_PRIO_LOW         0x00
 
 /** DMA configuration structure */
@@ -139,12 +138,12 @@ extern dma_config_t dma_conf[DMA_CHANNEL_COUNT];
 
 /* Functions Declarations */
 void dma_init(void);
-void dma_associate_process (struct process * p, uint8_t c);
+void dma_associate_process(struct process *p, uint8_t c);
 void dma_reset(uint8_t c);
 
 /* Only link the ISR when DMA_ON is .... on */
 #if DMA_ON
-void dma_isr( void ) __interrupt (DMA_VECTOR);
+void dma_isr(void) __interrupt(DMA_VECTOR);
 #endif
 
 #endif /*__DMA_H*/
