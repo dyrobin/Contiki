@@ -49,6 +49,8 @@
 #include "net/uip-ds6-route.h"
 #include "net/uip-ds6-nbr.h"
 
+#include "net/multicast6/uip-mcast6.h"
+
 /*--------------------------------------------------*/
 /** Configuration. For all tables (Neighbor cache, Prefix List, Routing Table,
  * Default Router List, Unicast address list, multicast address list, anycast address list),

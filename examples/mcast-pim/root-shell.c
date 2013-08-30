@@ -1,8 +1,11 @@
 #include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
+#include "net/multicast6/uip-mcast6.h"
+
 #include "shell.h"
 #include "serial-shell.h"
 #include "net/uip.h"
-#include "net/uip-ds6.h"
 #include "net/uip-debug.h"
 #include "net/rpl/rpl.h"
 #include "dev/serial-line.h"

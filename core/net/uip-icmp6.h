@@ -65,7 +65,10 @@
 #define ICMP6_REDIRECT                  137  /**< Redirect */
 
 #define ICMP6_RPL                       155  /**< RPL */
-#define ICMP6_MULTICAST                 201 /**<Test for PIM MULTICAST */
+
+#define ICMP6_TRICKLE_MCAST             200
+#define ICMP6_MPL                       200
+#define ICMP6_MULTICAST                 201 /* PIM */
 /** @} */
 
 

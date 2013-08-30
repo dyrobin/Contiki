@@ -1,8 +1,8 @@
 #ifndef __PIM_H__
 #define __PIM_H__
 
-#include "pim-control.h"
 #include "net/uip.h"
+#include "net/multicast6/pim-control.h"
 
 #ifndef MAX_NUM_OF_MCAST6_GROUPS
 #define MAX_NUM_OF_MCAST6_GROUPS 8
@@ -19,9 +19,6 @@
 #else
 #define MCAST_THRESHOLD 10000
 #endif
-
-uint8_t pim_data_in(void);
-void pim_data_out(void);
 
 /* 
     Multicast routing table entry defined here. 
@@ -54,6 +51,8 @@ uip_mcast6_route_t *uip_mcast6_route_find(uip_ipaddr_t *sender_addr,
                                           uip_ipaddr_t *grp_addr);
 void print_mcast_table(void);
 void handle_mcast_timer();
-void pim_init(void);
+void    pim_init(void);
+uint8_t pim_in(void);
+void    pim_out(void);
 
 #endif /* __PIM_H__ */

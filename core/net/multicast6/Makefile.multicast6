@@ -1,1 +1,5 @@
-CONTIKI_SOURCEFILES += pim.c pim-control.c 
+ifeq ($(UIP_CONF_IPV6),1)
+  NET += roll-trickle.c roll-mpl.c pim.c pim-control.c
+else
+  ${warning multicast6 engines only work with IPv6.}
+endif

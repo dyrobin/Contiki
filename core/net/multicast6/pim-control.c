@@ -1,13 +1,14 @@
-#include "net/uip-ds6.h"
-#include "net/uip-icmp6.h"
-#include "pim-control.h"
-#include "pim.h"
+#include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
+#include "net/multicast6/uip-mcast6.h"
+
+#ifdef __PIM_H__
 
 #include <string.h>
 
-#define DEBUG DEBUG_NONE
-
 #include "net/uip-debug.h"
+#define DEBUG DEBUG_NONE
 
 #define UIP_IP_BUF       ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_ICMP_BUF     ((struct uip_icmp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
@@ -27,7 +28,7 @@ find_next_hop(uip_ipaddr_t *addr)
     if (locrt == NULL) {
         nexthop = uip_ds6_defrt_choose();
     } else {
-        nexthop = &locrt->nexthop;
+        nexthop = uip_ds6_route_nexthop(locrt);
     }
 
     return nexthop;
@@ -393,4 +394,6 @@ pim_control_input(void)
 
     uip_len = 0;
 }
-        
+
+#endif /* __PIM_H__ */
+

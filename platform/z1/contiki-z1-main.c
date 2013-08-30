@@ -260,6 +260,8 @@ main(int argc, char **argv)
   }
 #endif /* IEEE_802154_MAC_ADDRESS */
 
+  random_init(node_id);
+
    /*
    * Initialize Contiki and our processes.
    */

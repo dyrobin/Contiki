@@ -76,12 +76,6 @@
 #include "net/uip-nd6.h"
 #include "net/uip-ds6.h"
 
-/*
-    this following file inclusion is for experimental
-    multicast implementation
-*/
-#include "net/multicast6/pim.h"
-
 #include <string.h>
 
 #if UIP_CONF_IPV6
@@ -437,8 +431,8 @@ uip_init(void)
 #endif /* UIP_UDP */
 
 #if UIP_IPV6_MULTICAST
-    pim_init();
-#endif /* UIP_IPV6_MULTICAST */
+  uip_mcast6_init();
+#endif
 }
 /*---------------------------------------------------------------------------*/
 #if UIP_TCP && UIP_ACTIVE_OPEN
@@ -875,11 +869,19 @@ ext_hdr_options_process(void)
         PRINTF("Processing RPL option\n");
         if(rpl_verify_header(uip_ext_opt_offset)) {
           PRINTF("RPL Option Error: Dropping Packet\n");
-          return 1;
+          return HDR_PROC_DISCARD_SILENTLY;
         }
 #endif /* UIP_CONF_IPV6_RPL */
         uip_ext_opt_offset += (UIP_EXT_HDR_OPT_BUF->len) + 2;
-        return 0;
+        return HDR_PROC_SKIP_THIS_OPTION;
+#if UIP_IPV6_MULTICAST == UIP_MCAST6_ENGINE_MPL
+      case HBHO_MPL_OPT_TYPE:
+        /* MPL engine will be invoked later, just to avoid packet being dropped.
+         * Since MPL_OPT_TYPE = 0x6D (draft-04) & 0xC0 = 0x40, which will be
+         * dropped by the default case. */
+        return HDR_PROC_SKIP_THIS_OPTION;
+        break;
+#endif /* UIP_MCAST6_ENGINE_MPL */
       default:
         /*
          * check the two highest order bits of the option
@@ -899,15 +901,15 @@ ext_hdr_options_process(void)
           case 0:
             break;
           case 0x40:
-            return 1;
+            return HDR_PROC_DISCARD_SILENTLY;
           case 0xC0:
             if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
-              return 1;
+              return HDR_PROC_DISCARD_SILENTLY;
             }
           case 0x80:
             uip_icmp6_error_output(ICMP6_PARAM_PROB, ICMP6_PARAMPROB_OPTION,
                              (uint32_t)UIP_IPH_LEN + uip_ext_len + uip_ext_opt_offset);
-            return 2;
+            return HDR_PROC_DISCARD_AND_ICMP;
         }
         /* in the cases were we did not discard, update ext_opt* */
         uip_ext_opt_offset += UIP_EXT_HDR_OPT_BUF->len + 2;
@@ -1144,16 +1146,16 @@ uip_process(uint8_t flag)
     uip_ext_bitmap |= UIP_EXT_HDR_BITMAP_HBHO;
 #endif /* UIP_CONF_IPV6_CHECKS */
     switch(ext_hdr_options_process()) {
-      case 0:
+      case HDR_PROC_SKIP_THIS_OPTION:
         /* continue */
         uip_next_hdr = &UIP_EXT_BUF->next;
         uip_ext_len += (UIP_EXT_BUF->len << 3) + 8;
         break;
-      case 1:
+      case HDR_PROC_DISCARD_SILENTLY:
 	PRINTF("Dropping packet after extension header processing\n");
         /* silently discard */
         goto drop;
-      case 2:
+      case HDR_PROC_DISCARD_AND_ICMP:
 	PRINTF("Sending error message after extension header processing\n");
         /* send icmp error message (created in ext_hdr_options_process)
          * and discard*/
@@ -1161,20 +1163,30 @@ uip_process(uint8_t flag)
     }
   }
 
-/*
-  Here check if the dest addr is multicast. then let the pim data handler
-  handle it
-*/
 #if UIP_IPV6_MULTICAST
+  if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
+#if UIP_IPV6_MULTICAST == UIP_MCAST6_ENGINE_MPL
+    if(roll_mpl_is_subscribed(&UIP_IP_BUF->destipaddr)) {
+#elif UIP_IPV6_MULTICAST == UIP_MCAST6_ENGINE_PIM
     if(uip_is_addr_mcast_pim_ssm(&UIP_IP_BUF->destipaddr)) {
-        if(pim_data_in()) {
-            /* pim_data_in handled forwarding.. skip the processing in here */
-            UIP_IP_BUF->ttl = UIP_IP_BUF->ttl - 1;
-            goto send;
-        } else {
-            goto drop;
-        }
+#elif UIP_IPV6_MULTICAST == UIP_MCAST6_ENGINE_TRICKLE
+    if(uip_is_addr_mcast_routable(&UIP_IP_BUF->destipaddr)) {
+#else
+    if(0) {
+#endif
+      if(uip_mcast6_in()) {
+#if UIP_IPV6_MULTICAST == UIP_MCAST6_ENGINE_PIM
+        /* Broadcast again */
+        goto send;
+#else
+        /* Bypass the forwarding code, the engine handled it */
+        goto process;
+#endif
+      } else {
+        goto drop;
+      }
     }
+  }
 #endif /* UIP_IPV6_MULTICAST */
 
   /* TBD Some Parameter problem messages */
@@ -1245,6 +1257,10 @@ uip_process(uint8_t flag)
   uip_ext_bitmap = 0;
 #endif /* UIP_CONF_ROUTER */
 
+#if UIP_IPV6_MULTICAST
+  process:
+#endif
+
   while(1) {
     switch(*uip_next_hdr){
 #if UIP_TCP
@@ -1272,15 +1288,15 @@ uip_process(uint8_t flag)
         }
 #endif /*UIP_CONF_IPV6_CHECKS*/
         switch(ext_hdr_options_process()) {
-          case 0:
+          case HDR_PROC_SKIP_THIS_OPTION:
             /*continue*/
             uip_next_hdr = &UIP_EXT_BUF->next;
             uip_ext_len += (UIP_EXT_BUF->len << 3) + 8;
             break;
-          case 1:
+          case HDR_PROC_DISCARD_SILENTLY:
             /*silently discard*/
             goto drop;
-          case 2:
+          case HDR_PROC_DISCARD_AND_ICMP:
             /* send icmp error message (created in ext_hdr_options_process)
              * and discard*/
             goto send;
@@ -1452,11 +1468,6 @@ uip_process(uint8_t flag)
     uip_rpl_input();
     break;
 #endif /* UIP_CONF_IPV6_RPL */
-#if UIP_IPV6_MULTICAST
-    case ICMP6_MULTICAST:
-        pim_control_input();
-        break;
-#endif /*UIP_IPV6_MULTICAST */
     case ICMP6_ECHO_REQUEST:
       uip_icmp6_echo_request_input();
       break;
@@ -1466,6 +1477,23 @@ uip_process(uint8_t flag)
       UIP_STAT(++uip_stat.icmp.recv);
       uip_len = 0;
       break;
+#if UIP_IPV6_MCAST_PIM
+    case ICMP6_MULTICAST:
+      pim_control_input();
+      break;
+#endif
+#if UIP_IPV6_MCAST_TRICKLE
+    case ICMP6_TRICKLE_MCAST:
+      roll_trickle_icmp_input();
+      uip_len = 0;
+      break;
+#endif
+#if UIP_IPV6_MCAST_MPL
+    case ICMP6_MPL:
+      roll_mpl_icmp_input();
+      uip_len = 0;
+      break;
+#endif
     default:
       PRINTF("Unknown icmp6 message type %d\n", UIP_ICMP_BUF->type);
       UIP_STAT(++uip_stat.icmp.drop);
@@ -1509,6 +1537,7 @@ uip_process(uint8_t flag)
     UIP_STAT(++uip_stat.udp.chkerr);
     PRINTF("udp: bad checksum 0x%04x 0x%04x\n", UIP_UDP_BUF->udpchksum,
            uip_udpchksum());
+    printf("DROP udp chksum\n");
     goto drop;
   }
 #else /* UIP_UDP_CHECKSUMS */

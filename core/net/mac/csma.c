@@ -126,6 +126,14 @@ neighbor_queue_from_addr(const rimeaddr_t *addr)
 static clock_time_t
 default_timebase(void)
 {
+#ifdef CSMA_CONF_BACKOFF_HACK
+#if CSMA_CONF_BACKOFF_HACK >= 1
+  return CSMA_CONF_BACKOFF_HACK;
+#else
+#warning csma.c: BACKOFF_HACK >= 1 mandated.
+  return 1;
+#endif /* CSMA_CONF_BACKOFF_HACK >= 1 */
+#else
   clock_time_t time;
   /* The retransmission time must be proportional to the channel
      check interval of the underlying radio duty cycling layer. */
@@ -137,7 +145,11 @@ default_timebase(void)
   if(time == 0) {
     time = CLOCK_SECOND / NETSTACK_RDC_CHANNEL_CHECK_RATE;
   }
+#ifdef CSMA_CONF_PRINT_DEFAULT_TIMEBASE
+  printf("WAIT def_tbase %lu\n", time);
+#endif
   return time;
+#endif /* CSMA_CONF_BACKOFF_HACK */
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -175,6 +187,9 @@ free_packet(struct neighbor_queue *n, struct rdc_buf_list *p)
       /* Set a timer for next transmissions */
       ctimer_set(&n->transmit_timer, default_timebase(),
                  transmit_packet_list, n);
+#ifdef CSMA_CONF_SHOW_WAIT
+      printf("WAIT free, next\n");
+#endif
     } else {
       /* This was the last packet in the queue, we free the neighbor */
       ctimer_stop(&n->transmit_timer);
@@ -265,6 +280,9 @@ packet_sent(void *ptr, int status, int num_transmissions)
 
         if(n->transmissions < metadata->max_transmissions) {
           PRINTF("csma: retransmitting with time %lu %p\n", time, q);
+#ifdef CSMA_CONF_SHOW_WAIT
+          printf("WAIT sent, retr t=%lu bf=%d\n", time, backoff_transmissions);
+#endif
           ctimer_set(&n->transmit_timer, time,
                      transmit_packet_list, n);
           /* This is needed to correctly attribute energy that we spent
@@ -272,6 +290,8 @@ packet_sent(void *ptr, int status, int num_transmissions)
           queuebuf_update_attr_from_packetbuf(q->buf);
         } else {
           PRINTF("csma: drop with status %d after %d transmissions, %d collisions\n",
+                 status, n->transmissions, n->collisions);
+          printf("DROP csma stat %d rtr %d col %d\n",
                  status, n->transmissions, n->collisions);
           free_packet(n, q);
           mac_call_sent_callback(sent, cptr, status, num_tx);
@@ -357,9 +377,11 @@ send_packet(mac_callback_t sent, void *ptr)
 	}
 	memb_free(&metadata_memb, q->ptr);
 	PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+	printf("DROP csma qb1\n");
       }
       memb_free(&packet_memb, q);
       PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+      printf("DROP csma qb2\n");
     }
     /* The packet allocation failed. Remove and free neighbor entry if empty. */
     if(list_length(n->queued_packet_list) == 0) {
@@ -367,8 +389,10 @@ send_packet(mac_callback_t sent, void *ptr)
       memb_free(&neighbor_memb, n);
     }
     PRINTF("csma: could not allocate packet, dropping packet\n");
+    printf("DROP csma packet\n");
   } else {
     PRINTF("csma: could not allocate neighbor, dropping packet\n");
+    printf("DROP csma neighbor\n");
   }
   mac_call_sent_callback(sent, ptr, MAC_TX_ERR, 1);
 }

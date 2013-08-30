@@ -1,15 +1,15 @@
+#include "contiki.h"
 #include "contiki-net.h"
-#include "net/uip-ds6.h"
-#include "net/uip-icmp6.h"
-#include "pim-control.h"
-#include "pim.h"
-#include "sys/clock.h"
+#include "contiki-lib.h"
+#include "net/multicast6/uip-mcast6.h"
 
+#ifdef __PIM_H__
+
+#include "sys/clock.h"
 #include <string.h>
 
-#define DEBUG DEBUG_NONE
-
 #include "net/uip-debug.h"
+#define DEBUG DEBUG_NONE
 
 #define UIP_IP_BUF       ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
@@ -87,7 +87,7 @@ check_route_changed(uip_mcast6_route_t *entry)
     nexthop = find_next_hop(&entry->sender_addr);
     new = uip_ds6_nbr_lookup(nexthop);
     old = uip_ds6_nbr_lookup(&entry->pref_parent);
-    if(memcmp(new->lladdr.addr, old->lladdr.addr, UIP_LLADDR_LEN) != 0) {
+    if(uip_ipaddr_cmp(&new->ipaddr, &old->ipaddr) != 0) {
         PRINT6ADDR(nexthop);
         PRINTF(" is the new parent \n");
         return 1;
@@ -200,7 +200,7 @@ uip_mcast6_route_find(uip_ipaddr_t *sender_addr, uip_ipaddr_t *grp_addr)
  *      Function called when a multicast data packet enters uip_process()
  */
 uint8_t
-pim_data_in(void)
+pim_in(void)
 {
     uip_mcast6_route_t *entry;
     uip_ipaddr_t src_addr;
@@ -222,8 +222,7 @@ pim_data_in(void)
         PRINTF("MCAST:No state found: Packet rejected\n");
     } else {
         if((p = uip_ds6_nbr_lookup(&entry->pref_parent)) != NULL) {
-            if(memcmp(p->lladdr.addr, packetbuf_addr(PACKETBUF_ADDR_SENDER), 
-                UIP_LLADDR_LEN)) {
+            if(uip_ipaddr_cmp(&p->ipaddr, &src_addr) != 0) {
                 PRINTF("MCAST: Not from preferred sender, reject\n");
             } else {
                 printf("Data received: %s \n ", appdata);
@@ -239,7 +238,7 @@ pim_data_in(void)
 }
 
 void 
-pim_data_out(void)
+pim_out(void)
 {
     /* TODO
         process the uip_buf before sending the packet
@@ -253,4 +252,6 @@ pim_init(void)
     ctimer_set(&mcast_timer, MCAST_INTERVAL*CLOCK_SECOND, 
                handle_mcast_timer, NULL);
 }
+
+#endif /* __PIM_H__ */
 

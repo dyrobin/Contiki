@@ -1,7 +1,9 @@
 #include "contiki.h"
-#include "shell.h"
-#include "uip.h"
 #include "net/multicast6/pim.h"
+#include "net/multicast6/pim-control.h"
+
+#include "shell.h"
+#include "net/uip.h"
 #include "net/uip-udp-packet.h"
 #include <string.h>
 #include <stdio.h>

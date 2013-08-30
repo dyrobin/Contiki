@@ -2095,7 +2095,33 @@ CCIF extern uip_lladdr_t uip_lladdr;
   (((a)->u8[0]) == 0xFF)
 
 /**
- * is address a pim-ssm multicast address (FF3x::/32)
+ * \brief is address a global multicast address (FFxE::/16),
+ * a is of type uip_ipaddr_t*
+ * */
+#define uip_is_addr_mcast_global(a) \
+  ((((a)->u8[0]) == 0xFF) && \
+  (((a)->u8[1] & 0x0F) == 0x0E))
+
+/**
+ * \brief is address a non-routable multicast address. We currently only
+ * consider global scope as routable (Scope == 0x0E), although it can be argued
+ * that site- and organization-local should also be routable within the lowpan.
+ * a is of type uip_ipaddr_t*
+ * */
+#define uip_is_addr_mcast_non_routable(a) \
+  ((((a)->u8[0]) == 0xFF) && \
+  (((a)->u8[1] & 0x0F) != 0x0E))
+
+/**
+ * \brief is address a routable multicast address. We currently only
+ * consider global scope as routable (Scope == 0x0E), although it can be argued
+ * that site- and organization-local should also be routable within the lowpan.
+ * a is of type uip_ipaddr_t*
+ * */
+#define uip_is_addr_mcast_routable(a) uip_is_addr_mcast_global(a)
+
+/**
+ * \brief is address a pim-ssm multicast address (FF3x::/32)
  */
 #define uip_is_addr_mcast_pim_ssm(a) \
   ((((a)->u8[0]) == 0xFF) && \
@@ -2199,6 +2225,12 @@ uint16_t uip_udpchksum(void);
  */
 uint16_t uip_icmp6chksum(void);
 
+
+/* Return values for ext_hdr_options_process()
+ * See: RFC 2460 4.2 */
+#define HDR_PROC_SKIP_THIS_OPTION   0
+#define HDR_PROC_DISCARD_SILENTLY   1
+#define HDR_PROC_DISCARD_AND_ICMP   2
 
 #endif /* __UIP_H__ */
 
