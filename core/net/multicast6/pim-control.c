@@ -7,8 +7,8 @@
 
 #include <string.h>
 
-#include "net/uip-debug.h"
 #define DEBUG DEBUG_NONE
+#include "net/uip-debug.h"
 
 #define UIP_IP_BUF       ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_ICMP_BUF     ((struct uip_icmp_hdr *)&uip_buf[uip_l2_l3_hdr_len])

@@ -2,6 +2,7 @@
 #define __PIM_H__
 
 #include "net/uip.h"
+#include "uip-ds6-nbr.h"
 #include "net/multicast6/pim-control.h"
 
 #ifndef MAX_NUM_OF_MCAST6_GROUPS

@@ -8,8 +8,8 @@
 #include "sys/clock.h"
 #include <string.h>
 
-#include "net/uip-debug.h"
 #define DEBUG DEBUG_NONE
+#include "net/uip-debug.h"
 
 #define UIP_IP_BUF       ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
@@ -78,16 +78,16 @@ static int
 check_route_changed(uip_mcast6_route_t *entry)
 {
     uip_ipaddr_t *nexthop;
-    uip_ds6_nbr_t *new;
-    uip_ds6_nbr_t *old;
+    uip_lladdr_t *newll;
+    uip_lladdr_t *oldll;
 
     if(uip_ds6_is_my_addr(&entry->sender_addr)) {
         return 0;
     }
     nexthop = find_next_hop(&entry->sender_addr);
-    new = uip_ds6_nbr_lookup(nexthop);
-    old = uip_ds6_nbr_lookup(&entry->pref_parent);
-    if(uip_ipaddr_cmp(&new->ipaddr, &old->ipaddr) != 0) {
+    newll = uip_ds6_nbr_lladdr_from_ipaddr(nexthop);
+    oldll = uip_ds6_nbr_lladdr_from_ipaddr(&entry->pref_parent);
+    if(memcmp(newll, oldll, UIP_LLADDR_LEN) != 0) {
         PRINT6ADDR(nexthop);
         PRINTF(" is the new parent \n");
         return 1;
@@ -205,7 +205,7 @@ pim_in(void)
     uip_mcast6_route_t *entry;
     uip_ipaddr_t src_addr;
     uip_ipaddr_t dest_addr;
-    uip_ds6_nbr_t *p;
+    uip_lladdr_t *ll;
     char *appdata;
 
 /* The following 2 lines of code are for debugging purpose
@@ -221,8 +221,8 @@ pim_in(void)
     if(entry == NULL) {
         PRINTF("MCAST:No state found: Packet rejected\n");
     } else {
-        if((p = uip_ds6_nbr_lookup(&entry->pref_parent)) != NULL) {
-            if(uip_ipaddr_cmp(&p->ipaddr, &src_addr) != 0) {
+        if((ll = uip_ds6_nbr_lladdr_from_ipaddr(&entry->pref_parent)) != NULL) {
+            if(memcmp(ll, packetbuf_addr(PACKETBUF_ADDR_SENDER), UIP_LLADDR_LEN) != 0) {
                 PRINTF("MCAST: Not from preferred sender, reject\n");
             } else {
                 printf("Data received: %s \n ", appdata);
