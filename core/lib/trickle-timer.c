@@ -266,10 +266,6 @@ fire(void *ptr)
          (unsigned long)(loctt->ct.etimer.timer.start +
                          loctt->ct.etimer.timer.interval));
 
-  /* This re-starts the timer. Put it here to give the callback function
-   *  a chance to disable the timer. */
-  schedule_for_end(loctt);
-
   if(loctt->cb) {
     /*
      * Call the protocol's TX callback, with the suppression status as an
@@ -278,6 +274,10 @@ fire(void *ptr)
     PRINTF("trickle_timer fire: Suppression Status %u (%u < %u)\n",
            TRICKLE_TIMER_PROTO_TX_ALLOW(loctt), loctt->c, loctt->k);
     loctt->cb(loctt->cb_arg, TRICKLE_TIMER_PROTO_TX_ALLOW(loctt));
+  }
+
+  if(trickle_timer_is_running(loctt)) {
+    schedule_for_end(loctt);
   }
 }
 /*---------------------------------------------------------------------------*/
