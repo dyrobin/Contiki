@@ -71,6 +71,13 @@ contiki-cc2530dk.lib
 *.project
 *.cproject
 
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# Ctags
+.tags*
+
 # VC++ build artifacts
 *.exp
 *.ilk
