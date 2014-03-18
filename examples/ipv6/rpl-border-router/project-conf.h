@@ -28,8 +28,8 @@
  *
  */
 
-#ifndef __PROJECT_ROUTER_CONF_H__
-#define __PROJECT_ROUTER_CONF_H__
+#ifndef PROJECT_ROUTER_CONF_H_
+#define PROJECT_ROUTER_CONF_H_
 
 #ifndef UIP_FALLBACK_INTERFACE
 #define UIP_FALLBACK_INTERFACE rpl_interface
@@ -70,4 +70,4 @@
 #endif
 
 
-#endif /* __PROJECT_ROUTER_CONF_H__ */
+#endif /* PROJECT_ROUTER_CONF_H_ */

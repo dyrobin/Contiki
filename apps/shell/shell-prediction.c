@@ -1,7 +1,7 @@
 #include "contiki.h"
 #include "shell.h"
 #include "uip.h"
-#include "net/uip-ds6.h"
+#include "net/ipv6/uip-ds6.h"
 #include <string.h>
 #include <stdio.h>
 #include "sys/clock.h"
@@ -247,10 +247,12 @@ PROCESS_THREAD(shell_show_routes_process, ev, data)
 
   PROCESS_BEGIN();
   //printf("Routes\n");
-  for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+
+  r = uip_ds6_route_head();
+  while (uip_ds6_route_next(r)) {
     uip_debug_ipaddr_print(&r->ipaddr);
     printf(" via ");
-    uip_debug_ipaddr_print(&r->nexthop);
+    uip_debug_ipaddr_print(uip_ds6_route_nexthop(r));
     printf("\n");
   }
   PROCESS_END();
