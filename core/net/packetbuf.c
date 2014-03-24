@@ -51,6 +51,27 @@
 struct packetbuf_attr packetbuf_attrs[PACKETBUF_NUM_ATTRS];
 struct packetbuf_addr packetbuf_addrs[PACKETBUF_NUM_ADDRS];
 
+/*
+ *         |hdrlen|    |    buflen    |
+ *   |************|**************************|
+ *   ^     ^      ^    ^              ^      ^
+ *   a     b      c    d              e      f
+ *   
+ *   PACKETBUF_HDR_SIZE:  c - a
+ *   PACKETBUF_SIZE:      f - c
+ *   hdrptr:  b
+ *   hdrlen:  c - b
+ *   bufptr:  d
+ *   buflen:  e - d
+ *   packetbufptr: c
+ *   packetbuf: a
+ *   
+ *   Note: 
+ *      packetbufptr always points to c if no reference.
+ *      packetbuf_compact: memmove(c, d, e - d) if no reference
+ *      packetbuf_hdrreduce: d = d' (d' > d and d' < e)
+ *   Commented by Yang Deng <yang.deng@aalto.fi>
+ */
 
 static uint16_t buflen, bufptr;
 static uint8_t hdrptr;

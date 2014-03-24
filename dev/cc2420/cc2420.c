@@ -32,7 +32,7 @@
 /*
  * This code is almost device independent and should be easy to port.
  */
-
+#include <stdio.h>
 #include <string.h>
 
 #include "contiki.h"
@@ -287,7 +287,7 @@ cc2420_init(void)
   uint16_t reg;
   {
     int s = splhigh();
-    cc2420_arch_init();		/* Initalize ports and SPI. */
+    cc2420_arch_init();   /* Initalize ports and SPI. */
     CC2420_DISABLE_FIFOP_INT();
     CC2420_FIFOP_INT_INIT();
     splx(s);
@@ -323,7 +323,7 @@ cc2420_init(void)
 
   
   /* Change default values as recomended in the data sheet, */
-  /* correlation threshold = 20, RX bandpass filter = 1.3uA. */
+  /* correlation threshold = 20, RX bandpass filter = 3uA. */
   setreg(CC2420_MDMCTRL1, CORR_THR(20));
   reg = getreg(CC2420_RXCTRL1);
   reg |= RXBPF_LOCUR;
@@ -351,7 +351,7 @@ static int
 cc2420_transmit(unsigned short payload_len)
 {
   int i, txpower;
-  uint8_t total_len;
+
 #if CC2420_CONF_CHECKSUM
   uint16_t checksum;
 #endif /* CC2420_CONF_CHECKSUM */
@@ -365,14 +365,12 @@ cc2420_transmit(unsigned short payload_len)
     /* Set the specified transmission power */
     set_txpower(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) - 1);
   }
-
-  total_len = payload_len + AUX_LEN;
   
   /* The TX FIFO can only hold one packet. Make sure to not overrun
    * FIFO by waiting for transmission to start here and synchronizing
    * with the CC2420_TX_ACTIVE check in cc2420_send.
    *
-   * Note that we may have to wait up to 320 us (20 symbols) before
+   * Note that we may have to wait up to 160 us (20 symbols) before
    * transmission starts.
    */
 #ifndef CC2420_CONF_SYMBOL_LOOP_COUNT
@@ -382,23 +380,36 @@ cc2420_transmit(unsigned short payload_len)
 #endif
 
 #if WITH_SEND_CCA
-  strobe(CC2420_SRXON);
-  BUSYWAIT_UNTIL(status() & BV(CC2420_RSSI_VALID), RTIMER_SECOND / 10);
+  /*
+   * No need to get CCA before issuing STXONCCA
+   * Modified by Yang Deng <yang.deng@aalto.fi>
+   */
+  //strobe(CC2420_SRXON);
+  //BUSYWAIT_UNTIL(status() & BV(CC2420_RSSI_VALID), RTIMER_SECOND / 10);
   strobe(CC2420_STXONCCA);
 #else /* WITH_SEND_CCA */
   strobe(CC2420_STXON);
 #endif /* WITH_SEND_CCA */
+  /*
+   * During the next 20 symbols period, check if SFD is sent. Normmaly the SFD 
+   * is sent after 8 or 12 symbols when STXON/STXONCCA is issued.
+   * Commented by Yang Deng <yang.deng@aalto.fi>
+   */
   for(i = LOOP_20_SYMBOLS; i > 0; i--) {
     if(CC2420_SFD_IS_1) {
-      {
-        rtimer_clock_t sfd_timestamp;
-        sfd_timestamp = cc2420_sfd_start_time;
-        if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) ==
-           PACKETBUF_ATTR_PACKET_TYPE_TIMESTAMP) {
-          /* Write timestamp to last two bytes of packet in TXFIFO. */
-          CC2420_WRITE_RAM(&sfd_timestamp, CC2420RAM_TXFIFO + payload_len - 1, 2);
-        }
-      }
+      /*
+       * Delete timestamp as it is useless.
+       * Modified by Yang Deng <yang.deng@aalto.fi>
+       */
+//      {
+//        rtimer_clock_t sfd_timestamp;
+//        sfd_timestamp = cc2420_sfd_start_time;
+//        if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) ==
+//           PACKETBUF_ATTR_PACKET_TYPE_TIMESTAMP) {
+//          /* Write timestamp to last two bytes of packet in TXFIFO. */
+//          CC2420_WRITE_RAM(&sfd_timestamp, CC2420RAM_TXFIFO + payload_len - 1, 2);
+//        }
+//      }
 
       if(!(status() & BV(CC2420_TX_ACTIVE))) {
         /* SFD went high but we are not transmitting. This means that
@@ -407,25 +418,28 @@ cc2420_transmit(unsigned short payload_len)
         RELEASE_LOCK();
         return RADIO_TX_COLLISION;
       }
+
       if(receive_on) {
-	ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+        ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
       }
       ENERGEST_ON(ENERGEST_TYPE_TRANSMIT);
       /* We wait until transmission has ended so that we get an
-	 accurate measurement of the transmission time.*/
+         accurate measurement of the transmission time.*/
       BUSYWAIT_UNTIL(!(status() & BV(CC2420_TX_ACTIVE)), RTIMER_SECOND / 10);
 
 #ifdef ENERGEST_CONF_LEVELDEVICE_LEVELS
       ENERGEST_OFF_LEVEL(ENERGEST_TYPE_TRANSMIT,cc2420_get_txpower());
 #endif
       ENERGEST_OFF(ENERGEST_TYPE_TRANSMIT);
-      printf("cc2420: Tx %u\n", energest_type_time(ENERGEST_TYPE_TRANSMIT));
+
+      //printf("cc2420: Tx %u\n", energest_type_time(ENERGEST_TYPE_TRANSMIT));
+      
       if(receive_on) {
-	ENERGEST_ON(ENERGEST_TYPE_LISTEN);
+        ENERGEST_ON(ENERGEST_TYPE_LISTEN);
       } else {
-	/* We need to explicitly turn off the radio,
-	 * since STXON[CCA] -> TX_ACTIVE -> RX_ACTIVE */
-	off();
+        /* We need to explicitly turn off the radio,
+         * since STXON[CCA] -> TX_ACTIVE -> RX_ACTIVE */
+        off();
       }
 
       if(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) > 0) {
@@ -440,6 +454,12 @@ cc2420_transmit(unsigned short payload_len)
 
   /* If we are using WITH_SEND_CCA, we get here if the packet wasn't
      transmitted because of other channel activity. */
+  /*
+   * The probability of getting here is quite small as the only situation
+   * is that when STXONCCA is issued CCA is inactive and during the next 
+   * 20 symbols period no frame is received.
+   * Commented by Yang Deng <yang.deng@aalto.fi>
+   */
   RIMESTATS_ADD(contentiondrop);
   PRINTF("cc2420: do_send() transmission never started\n");
   printf("cc2420: do_send() transmission never started\n");
@@ -707,7 +727,7 @@ cc2420_read(void *buf, unsigned short bufsize)
 #if CC2420_CONF_CHECKSUM
   if(checksum != crc16_data(buf, len - AUX_LEN, 0)) {
     PRINTF("checksum failed 0x%04x != 0x%04x\n",
-	   checksum, crc16_data(buf, len - AUX_LEN, 0));
+          checksum, crc16_data(buf, len - AUX_LEN, 0));
   }
 
   if(footer[1] & FOOTER1_CRC_OK &&

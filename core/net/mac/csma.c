@@ -56,6 +56,7 @@
 #include <stdio.h>
 
 #define DEBUG 0
+#include "net/ip/uip-debug.h" 
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -302,7 +303,7 @@ packet_sent(void *ptr, int status, int num_transmissions)
           PRINTF("csma: drop with status %d after %d transmissions, %d collisions\n",
                  status, n->transmissions, n->collisions);
           printf("csma: Frame DROPPED %d to ", n->transmissions);
-          uip_debug_lladdr_print(&n->addr);
+          uip_debug_lladdr_print((uip_lladdr_t *)&n->addr);
           printf("\n");
           free_packet(n, q);
           mac_call_sent_callback(sent, cptr, status, num_tx);
@@ -311,7 +312,7 @@ packet_sent(void *ptr, int status, int num_transmissions)
         if(status == MAC_TX_OK) {
           PRINTF("csma: rexmit ok %d\n", n->transmissions);
           printf("csma: Frame SENT %d to ", n->transmissions);
-          uip_debug_lladdr_print(&n->addr);
+          uip_debug_lladdr_print((uip_lladdr_t *)&n->addr);
           printf("\n");
         } else {
           PRINTF("csma: rexmit failed %d: %d\n", n->transmissions, status);
@@ -370,39 +371,40 @@ send_packet(mac_callback_t sent, void *ptr)
     if(q != NULL) {
       q->ptr = memb_alloc(&metadata_memb);
       if(q->ptr != NULL) {
-	q->buf = queuebuf_new_from_packetbuf();
-	if(q->buf != NULL) {
-	  struct qbuf_metadata *metadata = (struct qbuf_metadata *)q->ptr;
-	  /* Neighbor and packet successfully allocated */
-	  if(packetbuf_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS) == 0) {
-	    /* Use default configuration for max transmissions */
-	    metadata->max_transmissions = CSMA_MAX_MAC_TRANSMISSIONS;
-	  } else {
-	    metadata->max_transmissions =
-                  packetbuf_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS);
-	  }
-	  metadata->sent = sent;
-	  metadata->cptr = ptr;
+        q->buf = queuebuf_new_from_packetbuf();
+        if(q->buf != NULL) {
+          struct qbuf_metadata *metadata = (struct qbuf_metadata *)q->ptr;
+          /* Neighbor and packet successfully allocated */
+          if(packetbuf_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS) == 0) {
+            /* Use default configuration for max transmissions */
+            metadata->max_transmissions = CSMA_MAX_MAC_TRANSMISSIONS;
+          } else {
+            metadata->max_transmissions =
+                        packetbuf_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS);
+          }
+          metadata->sent = sent;
+          metadata->cptr = ptr;
 
-	  if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) ==
-	     PACKETBUF_ATTR_PACKET_TYPE_ACK) {
-	    list_push(n->queued_packet_list, q);
-	  } else {
-	    list_add(n->queued_packet_list, q);
-	  }
+          if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) ==
+             PACKETBUF_ATTR_PACKET_TYPE_ACK) {
+            list_push(n->queued_packet_list, q);
+          } else {
+            list_add(n->queued_packet_list, q);
+          }
 
-	  /* If q is the first packet in the neighbor's queue, send asap */
-	  if(list_head(n->queued_packet_list) == q) {
-	    ctimer_set(&n->transmit_timer, 0, transmit_packet_list, n);
-	  }
-	  return;
-	}
-	memb_free(&metadata_memb, q->ptr);
-	PRINTF("csma: could not allocate queuebuf, dropping packet\n");
-        printf("CSMA: Frame DROPPED due to not allocated queuebuf\n");
+          /* If q is the first packet in the neighbor's queue, send asap */
+          if(list_head(n->queued_packet_list) == q) {
+            ctimer_set(&n->transmit_timer, 0, transmit_packet_list, n);
+          }
+          return;
+        }
+        memb_free(&metadata_memb, q->ptr);
+        PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+        printf("CSMA: Frame DROPPED because queuebuf is full\n");
       }
       memb_free(&packet_memb, q);
-      PRINTF("csma: could not allocate queuebuf, dropping packet\n");
+      PRINTF("csma: could not allocate metadata, dropping packet\n");
+      printf("CSMA: Frame DROPPED because MetadataList is full\n");
     }
     /* The packet allocation failed. Remove and free neighbor entry if empty. */
     if(list_length(n->queued_packet_list) == 0) {
@@ -410,10 +412,10 @@ send_packet(mac_callback_t sent, void *ptr)
       memb_free(&neighbor_memb, n);
     }
     PRINTF("csma: could not allocate packet, dropping packet\n");
-    printf("CSMA: Frame DROPPED due to not allocated packet\n");
+    printf("CSMA: Frame DROPPED because PacketList is full\n");
   } else {
     PRINTF("csma: could not allocate neighbor, dropping packet\n");
-    printf("CSMA: Frame DROPPED due to not allocated neighbor\n");
+    printf("CSMA: Frame DROPPED because NeighborList is full\n");
   }
   mac_call_sent_callback(sent, ptr, MAC_TX_ERR, 1);
 }

@@ -165,6 +165,11 @@ send_one_packet(mac_callback_t sent, void *ptr)
           /* Check for ack */
           wt = RTIMER_NOW();
           watchdog_periodic();
+          /* TODO: BUSY_WAIT_UNTIL
+           * ACK will be sent after 12 symbol periods if frame is received
+           * Considering any possible delay we wait for 400 us here.
+           * Commented by Yang Deng <yang.deng@aalto.fi>
+           */
           while(RTIMER_CLOCK_LT(RTIMER_NOW(), wt + ACK_WAIT_TIME)) {
 #if CONTIKI_TARGET_COOJA
             simProcessRunValue = 1;
@@ -174,8 +179,8 @@ send_one_packet(mac_callback_t sent, void *ptr)
 
           ret = MAC_TX_NOACK;
           if(NETSTACK_RADIO.receiving_packet() ||
-             NETSTACK_RADIO.pending_packet() ||
-             NETSTACK_RADIO.channel_clear() == 0) {
+            NETSTACK_RADIO.pending_packet() ||
+            NETSTACK_RADIO.channel_clear() == 0) {
             int len;
             uint8_t ackbuf[ACK_LEN];
 
@@ -184,10 +189,10 @@ send_one_packet(mac_callback_t sent, void *ptr)
               watchdog_periodic();
               while(RTIMER_CLOCK_LT(RTIMER_NOW(),
                                     wt + AFTER_ACK_DETECTED_WAIT_TIME)) {
-      #if CONTIKI_TARGET_COOJA
-                  simProcessRunValue = 1;
-                  cooja_mt_yield();
-      #endif /* CONTIKI_TARGET_COOJA */
+#if CONTIKI_TARGET_COOJA
+                simProcessRunValue = 1;
+                cooja_mt_yield();
+#endif /* CONTIKI_TARGET_COOJA */
               }
             }
 
@@ -203,8 +208,8 @@ send_one_packet(mac_callback_t sent, void *ptr)
               }
             }
           } else {
-	    PRINTF("nullrdc tx noack\n");
-	  }
+            PRINTF("nullrdc tx noack\n");
+          }
         }
         break;
       case RADIO_TX_COLLISION:
@@ -238,6 +243,7 @@ send_one_packet(mac_callback_t sent, void *ptr)
 
 #endif /* ! NULLRDC_802154_AUTOACK */
   }
+
   if(ret == MAC_TX_OK) {
     last_sent_ok = 1;
   }
@@ -320,8 +326,8 @@ packet_input(void)
       frame802154_t info154;
       frame802154_parse(original_dataptr, original_datalen, &info154);
       if(info154.fcf.frame_type == FRAME802154_DATAFRAME &&
-         info154.fcf.ack_required != 0 &&
-         linkaddr_cmp((linkaddr_t *)&info154.dest_addr,
+        info154.fcf.ack_required != 0 &&
+        linkaddr_cmp((linkaddr_t *)&info154.dest_addr,
                       &linkaddr_node_addr)) {
         uint8_t ackdata[ACK_LEN] = {0, 0, 0};
 

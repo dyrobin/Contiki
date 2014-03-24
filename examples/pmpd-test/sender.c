@@ -82,7 +82,7 @@ PROCESS_THREAD(root_shell_process, ev, data)
   serial_line_init();
   serial_shell_init();
 
-  shell_prediction_init();
+  shell_pmpd_init();
 
 #if DIFF_DOMAIN == 0
   ipaddr = set_global_address();

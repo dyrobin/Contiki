@@ -52,7 +52,6 @@ tcpip_handler(void)
   char buf[MAX_PAYLOAD_LEN];
 
   if(uip_newdata()) {
-    printf("fucking!!!!!!!\n");
     ((char *)uip_appdata)[uip_datalen()] = 0;
     PRINTF("Server received: '%s' from ", (char *)uip_appdata);
     PRINT6ADDR(&UIP_IP_BUF->srcipaddr);

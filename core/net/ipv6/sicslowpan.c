@@ -72,8 +72,8 @@
 #include <stdio.h>
 
 #if PMPD_ENABLED == 1
-#include "net/pmpd.h"
-#include "net/uip-icmp6.h"
+#include "net/ipv6/pmpd.h"
+#include "net/ipv6/uip-icmp6.h"
 #endif
 
 #define DEBUG DEBUG_NONE
@@ -1481,7 +1481,7 @@ output(const uip_lladdr_t *localdest)
   if((int)uip_len - (int)uncomp_hdr_len > (int)MAC_MAX_PAYLOAD - framer_hdrlen - (int)packetbuf_hdr_len) {
 #if PMPD_ENABLED == 1
     printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u) - framer_hdrlen(%d) \
-              - rime_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, framer_hdrlen ,rime_hdr_len);
+              - packetbuf_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, framer_hdrlen ,packetbuf_hdr_len);
     uint8_t pkt_header, max_payload;
     if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) {
             struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
@@ -1497,7 +1497,7 @@ output(const uip_lladdr_t *localdest)
             return 0;
     }
 
-    max_payload = MAC_MAX_PAYLOAD - rime_hdr_len - (pkt_header - uncomp_hdr_len);
+    max_payload = MAC_MAX_PAYLOAD - packetbuf_hdr_len - (pkt_header - uncomp_hdr_len);
 
     printf("sicslowpan: max_payload(%u)\n", max_payload);
 
@@ -1575,14 +1575,14 @@ output(const uip_lladdr_t *localdest)
     /* If csma is going to be used, no need to check last status here as csma puts 
      * all the frames into a queue and we cann't get the status right now. 
      * Modified by Yang Deng <yang.deng@aalto.fi> */
-#if NETSTACK_MAC != csma_driver
-    if((last_tx_status == MAC_TX_COLLISION) ||
-       (last_tx_status == MAC_TX_ERR) ||
-       (last_tx_status == MAC_TX_ERR_FATAL)) {
-      PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-      return 0;
+    if (strcmp(NETSTACK_MAC.name, "CSMA") == 0) {
+      if((last_tx_status == MAC_TX_COLLISION) ||
+         (last_tx_status == MAC_TX_ERR) ||
+         (last_tx_status == MAC_TX_ERR_FATAL)) {
+        PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+        return 0;
+      }
     }
-#endif
     //printf("sicslowpan: ASSEM F1 DONE\n");
 
     /* set processed_ip_out_len to what we already sent from the IP payload*/
@@ -1642,14 +1642,14 @@ output(const uip_lladdr_t *localdest)
       /* If csma is going to be used, no need to check last status here as csma puts 
        * all the frames into a queue and we cann't get the status right now. 
        * Modified by Yang Deng <yang.deng@aalto.fi> */
-#if NETSTACK_MAC != csma_driver
-      if((last_tx_status == MAC_TX_COLLISION) ||
-         (last_tx_status == MAC_TX_ERR) ||
-         (last_tx_status == MAC_TX_ERR_FATAL)) {
-        PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
-        return 0;
+      if (strcmp(NETSTACK_MAC.name, "CSMA") == 0) {
+        if((last_tx_status == MAC_TX_COLLISION) ||
+           (last_tx_status == MAC_TX_ERR) ||
+           (last_tx_status == MAC_TX_ERR_FATAL)) {
+          PRINTFO("error in fragment tx, dropping subsequent fragments.\n");
+          return 0;
+        }
       }
-#endif
     }
     printf("sicslowpan: num of fragments = %u\n", num_frag);
 #else /* SICSLOWPAN_CONF_FRAG */
@@ -1825,7 +1825,7 @@ input(void)
 
       // ftime = clock_fine();
       printf("sicslowpan: %lu REASS START from ", clock_time());
-      uip_debug_lladdr_print(packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      uip_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
       printf("\n");
 
       timer_set(&reass_timer, SICSLOWPAN_REASS_MAXAGE * CLOCK_SECOND / 16);
@@ -1948,10 +1948,10 @@ input(void)
   PRINTF("sicslowpan_init processed_ip_in_len %d, sicslowpan_len %d\n",
          processed_ip_in_len, sicslowpan_len);
   if(processed_ip_in_len == 0 || (processed_ip_in_len == sicslowpan_len)) {
-	if(frag_flag) {
-		//ftime = clock_fine();
-		printf("sicslowpan: %lu REASS END num %u\n", clock_time(), fragn_flag + frag_flag);
-	}
+  	if(frag_flag) {
+  		//ftime = clock_fine();
+  		printf("sicslowpan: %lu REASS END num %u\n", clock_time(), fragn_flag + frag_flag);
+  	}
     PRINTFI("sicslowpan input: IP packet ready (length %d)\n",
            sicslowpan_len);
 

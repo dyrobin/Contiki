@@ -88,7 +88,7 @@ PROCESS_THREAD(child_shell_process, ev, data)
   serial_line_init();
   serial_shell_init();
 
-  shell_prediction_init();
+  shell_pmpd_init();
 
 #if DIFF_DOMAIN == 0
   set_global_address();

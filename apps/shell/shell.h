@@ -388,7 +388,7 @@ struct shell_input {
 #include "shell-ping.h"
 #include "shell-power.h"
 #include "shell-powertrace.h"
-#include "shell-prediction.h"
+#include "shell-pmpd.h"
 #include "shell-ps.h"
 #include "shell-reboot.h"
 #include "shell-rime-debug.h"

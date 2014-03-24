@@ -164,10 +164,15 @@ typedef unsigned long off_t;
  * SPI bus - CC2420 pin configuration.
  */
 
-/* double the loop count as frequency of MCU doubled
+/* 
+ * 1 instruction cycle ~= 62.5 ns (MSP430F2617 @ 16MHz)
+ * 1 loop ~= 2 cycles = 125 ns (at least)
+ * 1 symbol = 8 us (CC2420)
+ * TX starts after 8 or 12 symbols and 20 is taken here to ensure TX happens
+ * LOOP_COUNT = 20 * 8 * 1000 / 125 = 1280 (at most)
  * Modified by Yang Deng <yang.deng@aalto.fi>
  */
-#define CC2420_CONF_SYMBOL_LOOP_COUNT (1302 * 2)	/* 326us msp430X @ 16MHz */
+#define CC2420_CONF_SYMBOL_LOOP_COUNT (1280)
 
 /* P1.2 - Input: FIFOP from CC2420 */
 #define CC2420_FIFOP_PORT(type)   P1##type

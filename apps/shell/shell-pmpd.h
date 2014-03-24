@@ -3,6 +3,6 @@
 
 #include "shell.h"
 
-void shell_prediction_init(void);
+void shell_pmpd_init(void);
 
 #endif

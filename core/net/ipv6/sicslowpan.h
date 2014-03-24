@@ -322,12 +322,15 @@ int sicslowpan_get_last_rssi(void);
 
 extern const struct network_driver sicslowpan_driver;
 
+ #if 0
 /**
  * For testing purpose
  * get_compressed_hdr_size:
  * returns the size of compressed header after sicslowpan compression
  */
+
 uint8_t get_compressed_hdr_size();
+#endif
 
 #endif /* SICSLOWPAN_H_ */
 /** @} */
