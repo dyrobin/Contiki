@@ -16,7 +16,7 @@ static struct process* net_pmpd_list[NUM_PROC_PMPD];
 
 static uint8_t tail_pmpd_cache = 0;
 
-#define DEFAULT_MAX_PAYLOAD_PMPD 92
+#define DEFAULT_MAX_PAYLOAD_PMPD 97
 
 static
 uint8_t pmpd_find_pos(const uip_ip6addr_t* dst_addr)
@@ -54,8 +54,9 @@ void pmpd_poll_proc()
 
 uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_payload)
 {
-	printf ("pmpd: update %lu\n", clock_time());
+	printf ("pmpd: update ");
 	uip_debug_ipaddr_print(dst_addr);
+	printf("with max_payload(%d)\n", max_payload);
 
 	uint8_t pos = pmpd_find_pos(dst_addr);
 	if (pos < NUM_CACHE_PMPD) {
@@ -64,7 +65,9 @@ uint8_t pmpd_set_max_payload(const uip_ip6addr_t* dst_addr, const uint8_t max_pa
 //			printf(" found in cache and update max_payload(%u)\n", max_payload);
 			return 1;
 		} else {
-			printf("pmpd: update error!\n");
+			printf("pmpd: update error for ");
+			uip_debug_ipaddr_print(dst_addr);
+			printf("\n");
 			return 0;
 		}
 	}

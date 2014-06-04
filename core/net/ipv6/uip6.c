@@ -1456,7 +1456,7 @@ uip_process(uint8_t flag)
     case ICMP6_PACKET_TOO_BIG:
       printf("uip6: receive max_payload(%u) from ", UIP_ICMP_BUF->icode);
       uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-      printf(" with original dest addr ");
+      printf(" whose dest addr is ");
       uip_debug_ipaddr_print((uip_ip6addr_t*)((uint8_t *)UIP_ICMP_BUF + UIP_ICMPH_LEN));
       printf("\n");
 

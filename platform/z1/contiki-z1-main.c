@@ -284,6 +284,8 @@ main(int argc, char **argv)
     cc2420_set_pan_addr(IEEE802154_PANID, shortaddr, longaddr);
   }
 
+  random_init(clock_fine() + node_id);
+//  random_init(90);
   leds_off(LEDS_ALL);
 
   PRINTF(CONTIKI_VERSION_STRING " started. ");
@@ -393,7 +395,7 @@ main(int argc, char **argv)
     uip_fw_default(&meshif);
     uip_over_mesh_init(UIP_OVER_MESH_CHANNEL);
     printf("uIP started with IP address %d.%d.%d.%d\n",
-	   uip_ipaddr_to_quad(&hostaddr));
+	  uip_ipaddr_to_quad(&hostaddr));
   }
 #endif /* WITH_UIP */
 

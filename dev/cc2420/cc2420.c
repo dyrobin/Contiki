@@ -381,11 +381,13 @@ cc2420_transmit(unsigned short payload_len)
 
 #if WITH_SEND_CCA
   /*
-   * No need to get CCA before issuing STXONCCA
-   * Modified by Yang Deng <yang.deng@aalto.fi>
+   * According to the source code of COOJA, we need get CCA before strobe
+   * STXONCCA. And 100 ms should be enough for getting CCA as normally only
+   * 8 symbol periods, or 8*16 = 128 us, is needed.
+   * Commented by Yang Deng <yang.deng@aalto.fi>
    */
-  //strobe(CC2420_SRXON);
-  //BUSYWAIT_UNTIL(status() & BV(CC2420_RSSI_VALID), RTIMER_SECOND / 10);
+  strobe(CC2420_SRXON);
+  BUSYWAIT_UNTIL(status() & BV(CC2420_RSSI_VALID), RTIMER_SECOND / 10);
   strobe(CC2420_STXONCCA);
 #else /* WITH_SEND_CCA */
   strobe(CC2420_STXON);
@@ -455,14 +457,14 @@ cc2420_transmit(unsigned short payload_len)
   /* If we are using WITH_SEND_CCA, we get here if the packet wasn't
      transmitted because of other channel activity. */
   /*
-   * The probability of getting here is quite small as the only situation
-   * is that when STXONCCA is issued CCA is inactive and during the next 
-   * 20 symbols period no frame is received.
+   * When STXONCCA is issued CCA is inactive and during the next 
+   * 20 symbols period no valid frame is received.
+   * 
    * Commented by Yang Deng <yang.deng@aalto.fi>
    */
   RIMESTATS_ADD(contentiondrop);
   PRINTF("cc2420: do_send() transmission never started\n");
-  printf("cc2420: do_send() transmission never started\n");
+//  printf("cc2420: tx never started\n");
 
 
   if(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) > 0) {
@@ -682,6 +684,10 @@ cc2420_read(void *buf, unsigned short bufsize)
 #endif /* CC2420_CONF_CHECKSUM */
 
   if(!CC2420_FIFOP_IS_1) {
+    /*
+     * We will get here when ACK frame has been read by RDC layer
+     * Commented by Yang Deng <yang.deng@aalto.fi>
+     */
     return 0;
   }
   /*  if(!pending) {
@@ -695,7 +701,6 @@ cc2420_read(void *buf, unsigned short bufsize)
   cc2420_packets_read++;
 
   getrxbyte(&len);
-
   if(len > CC2420_MAX_PACKET_LEN) {
     /* Oops, we must be out of sync. */
     flushrx();

@@ -167,6 +167,14 @@ void uip_log(char *msg);
 #define MAC_MAX_PAYLOAD 102
 #endif /* SICSLOWPAN_CONF_MAC_MAX_PAYLOAD */
 
+/* Size of physical service data unit, default is 125 (127 - 2 for CRC)
+ * Added by Yang Deng <yang.deng@aalto.fi>
+ */
+#ifdef SICSLOWPAN_CONF_PHY_MAX_PAYLOAD
+#define PHY_MAX_PAYLOAD SICSLOWPAN_CONF_PHY_MAX_PAYLOAD
+#else /* SICSLOWPAN_CONF_PHY_MAX_PAYLOAD */
+#define PHY_MAX_PAYLOAD 125
+#endif /* SICSLOWPAN_CONF_PHY_MAX_PAYLOAD */
 
 /** \brief Some MAC layers need a minimum payload, which is
     configurable through the SICSLOWPAN_CONF_MIN_MAC_PAYLOAD
@@ -263,6 +271,35 @@ static struct timer reass_timer;
 #endif /* SICSLOWPAN_CONF_FRAG */
 
 static int last_rssi;
+
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+/* FLow Filter
+ * Added by Yang Deng <yang.deng@aalto.fi>
+ */
+static flow_filter_t ff;
+
+void 
+flow_filter_set(uint16_t src_nodeid, uint16_t dst_nodeid)
+{
+  flow_filter_clear();
+  
+  uip_ip6addr(&ff.sipaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, src_nodeid);
+  uip_ip6addr(&ff.ripaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, dst_nodeid);
+}
+
+void
+flow_filter_clear()
+{
+  memset(&ff, 0, sizeof(ff));
+}
+
+void
+flow_filter_print()
+{
+  printf("%u frames %lu bytes %u frags\n", ff.frames, ff.bytes, ff.frags);
+}
+
+#endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
 /*-------------------------------------------------------------------------*/
 /* Rime Sniffer support for one single listener to enable powertrace of IP */
@@ -1367,6 +1404,7 @@ output(const uip_lladdr_t *localdest)
 {
   int framer_hdrlen;
 
+
   /* The MAC address of the destination of the packet */
   linkaddr_t dest;
 
@@ -1476,36 +1514,35 @@ output(const uip_lladdr_t *localdest)
 #else /* USE_FRAMER_HDRLEN */
   framer_hdrlen = 21;
 #endif /* USE_FRAMER_HDRLEN */
+  
+  if((int)uip_len - (int)uncomp_hdr_len > (int)PHY_MAX_PAYLOAD - framer_hdrlen - (int)packetbuf_hdr_len) {
 
-  // TODO: need to be fixed here.
-  if((int)uip_len - (int)uncomp_hdr_len > (int)MAC_MAX_PAYLOAD - framer_hdrlen - (int)packetbuf_hdr_len) {
 #if PMPD_ENABLED == 1
-    printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > MAC_MAX_PAYLOAD(%u) - framer_hdrlen(%d) \
-              - packetbuf_hdr_len(%u)\n", uip_len, uncomp_hdr_len, MAC_MAX_PAYLOAD, framer_hdrlen ,packetbuf_hdr_len);
-    uint8_t pkt_header, max_payload;
+//    printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > PHY_MAX_PAYLOAD(%u) - framer_hdrlen(%d) - packetbuf_hdr_len(%u)\n", 
+//          uip_len, uncomp_hdr_len, PHY_MAX_PAYLOAD, framer_hdrlen ,packetbuf_hdr_len);
+    uint8_t extra_hdr, max_payload;
     if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) {
-            struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
-            if (hbho_buf->next == UIP_PROTO_UDP) {
-                    pkt_header = UIP_LLH_LEN + UIP_IPH_LEN + (hbho_buf->len << 3) + 8 + UIP_UDPH_LEN;
-                    printf("sicslowpan: pkt_header(%u) with HBHO(%u) and UDP\n", pkt_header, (hbho_buf->len << 3) + 8);
-            }
+      struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
+      if (hbho_buf->next == UIP_PROTO_UDP) {
+          extra_hdr = (hbho_buf->len << 3) + 8 + UIP_UDPH_LEN;
+//          printf("sicslowpan: extra_header with HBHO(%u) and UDP\n", (hbho_buf->len << 3) + 8);
+      }
     } else if (UIP_IP_BUF->proto == UIP_PROTO_UDP) {
-            pkt_header = UIP_LLH_LEN + UIP_IPH_LEN + UIP_UDPH_LEN;
-            printf("sicslowpan: pkt_header(%u) with UDP\n", pkt_header);
+      extra_hdr = 0;
     } else {
-            printf ("sicslowpan: Unexpected IP data!\n");
-            return 0;
+      printf("sicslowpan: Unexpected IP data!\n");
+      return 0;
     }
 
-    max_payload = MAC_MAX_PAYLOAD - packetbuf_hdr_len - (pkt_header - uncomp_hdr_len);
+    max_payload = PHY_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len - extra_hdr;
 
-    printf("sicslowpan: max_payload(%u)\n", max_payload);
+//    printf("sicslowpan: max_payload(%u)\n", max_payload);
 
     if (uip_ds6_is_my_addr(&UIP_IP_BUF->srcipaddr)) {
-            printf("sicslowpan: PMPD update max_payload locally \n");
+//            printf("sicslowpan: PMPD update max_payload locally \n");
             pmpd_set_max_payload(&UIP_IP_BUF->destipaddr, max_payload);
     } else {
-            printf("sicslowpan: PMPD send max_payload back\n");
+//            printf("sicslowpan: PMPD send max_payload back\n");
             uip_icmp6_pmpd_output(max_payload);
     }
 
@@ -1524,7 +1561,7 @@ output(const uip_lladdr_t *localdest)
      */
 
     PRINTFO("Fragmentation sending packet len %d\n", uip_len);
-    printf("sicslowpan: Fragmentation sending packet len %d\n", uip_len);
+//    printf("sicslowpan: Fragmentation sending packet len %d\n", uip_len);
 
     /* Create 1st Fragment */
     num_frag++;
@@ -1547,12 +1584,23 @@ output(const uip_lladdr_t *localdest)
 
     /* Copy payload and send */
     packetbuf_hdr_len += SICSLOWPAN_FRAG1_HDR_LEN;
-    packetbuf_payload_len = (MAC_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len) & 0xfffffff8;
+    packetbuf_payload_len = (PHY_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len) & 0xfffffff8;
     PRINTFO("(len %d, tag %d)\n", packetbuf_payload_len, my_tag);
-    //printf("(len %d, tag %d, packetbuf_hdr_len %d)\n", packetbuf_payload_len, my_tag, packetbuf_hdr_len);
+//    printf("(len %d, tag %d, packetbuf_hdr_len %d)\n", packetbuf_payload_len, my_tag, packetbuf_hdr_len);
     memcpy(packetbuf_ptr + packetbuf_hdr_len,
            (uint8_t *)UIP_IP_BUF + uncomp_hdr_len, packetbuf_payload_len);
     packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
+
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+    /* collecting information for the filtered packets 
+     * Added by Yang Deng <yang.deng@aalto.fi>
+     */
+    if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
+        uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
+      ff.bytes += packetbuf_datalen();
+      ff.frames ++;
+    }
+#endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
     /* The code embraced by #if 0 and #endif seems not to be neccessary.
      * Modified by Yang Deng <yang.deng@aalto.fi> */
@@ -1564,6 +1612,7 @@ output(const uip_lladdr_t *localdest)
       return 0;
     }
 #endif
+
     send_packet(&dest);
 #if 0
     queuebuf_to_packetbuf(q);
@@ -1575,7 +1624,7 @@ output(const uip_lladdr_t *localdest)
     /* If csma is going to be used, no need to check last status here as csma puts 
      * all the frames into a queue and we cann't get the status right now. 
      * Modified by Yang Deng <yang.deng@aalto.fi> */
-    if (strcmp(NETSTACK_MAC.name, "CSMA") == 0) {
+    if (strcmp(NETSTACK_MAC.name, "CSMA") != 0) {
       if((last_tx_status == MAC_TX_COLLISION) ||
          (last_tx_status == MAC_TX_ERR) ||
          (last_tx_status == MAC_TX_ERR_FATAL)) {
@@ -1598,7 +1647,7 @@ output(const uip_lladdr_t *localdest)
 /*       uip_htons((SICSLOWPAN_DISPATCH_FRAGN << 8) | uip_len); */
     SET16(PACKETBUF_FRAG_PTR, PACKETBUF_FRAG_DISPATCH_SIZE,
           ((SICSLOWPAN_DISPATCH_FRAGN << 8) | uip_len));
-    packetbuf_payload_len = (MAC_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len) & 0xfffffff8;
+    packetbuf_payload_len = (PHY_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len) & 0xfffffff8;
     while(processed_ip_out_len < uip_len) {
       num_frag++;
       PRINTFO("sicslowpan output: fragment ");
@@ -1613,12 +1662,23 @@ output(const uip_lladdr_t *localdest)
       }
       PRINTFO("(offset %d, len %d, tag %d)\n",
              processed_ip_out_len >> 3, packetbuf_payload_len, my_tag);
-      //printf("(offset %d, len %d, tag %d, packetbuf_hdr_len %d)\n",
-      //       processed_ip_out_len >> 3, pakcetbuf_payload_len, my_tag, packetbuf_hdr_len);
+//      printf("(offset %d, len %d, tag %d, packetbuf_hdr_len %d)\n",
+//             processed_ip_out_len >> 3, packetbuf_payload_len, my_tag, packetbuf_hdr_len);
              
       memcpy(packetbuf_ptr + packetbuf_hdr_len,
              (uint8_t *)UIP_IP_BUF + processed_ip_out_len, packetbuf_payload_len);
       packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
+
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+    /* collecting information for the filtered packets 
+     * Added by Yang Deng <yang.deng@aalto.fi>
+     */
+    if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
+        uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
+      ff.bytes += packetbuf_datalen();
+      ff.frames ++;
+    }
+#endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
       /* The code embraced by #if 0 and #endif seems not to be neccessary.
        * Modified by Yang Deng <yang.deng@aalto.fi> */
@@ -1642,7 +1702,7 @@ output(const uip_lladdr_t *localdest)
       /* If csma is going to be used, no need to check last status here as csma puts 
        * all the frames into a queue and we cann't get the status right now. 
        * Modified by Yang Deng <yang.deng@aalto.fi> */
-      if (strcmp(NETSTACK_MAC.name, "CSMA") == 0) {
+      if (strcmp(NETSTACK_MAC.name, "CSMA") != 0) {
         if((last_tx_status == MAC_TX_COLLISION) ||
            (last_tx_status == MAC_TX_ERR) ||
            (last_tx_status == MAC_TX_ERR_FATAL)) {
@@ -1651,7 +1711,11 @@ output(const uip_lladdr_t *localdest)
         }
       }
     }
-    printf("sicslowpan: num of fragments = %u\n", num_frag);
+    /* record the number of fragments
+     * Added by Yang Deng <yang.deng@aalto.fi>
+     */
+    if (num_frag > ff.frags) ff.frags = num_frag;
+//    printf("sicslowpan: num of fragments = %u\n", num_frag);
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
     return 0;
@@ -1665,6 +1729,18 @@ output(const uip_lladdr_t *localdest)
     memcpy(packetbuf_ptr + packetbuf_hdr_len, (uint8_t *)UIP_IP_BUF + uncomp_hdr_len,
            uip_len - uncomp_hdr_len);
     packetbuf_set_datalen(uip_len - uncomp_hdr_len + packetbuf_hdr_len);
+    
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+    /* collecting information for the filtered packets 
+     * Added by Yang Deng <yang.deng@aalto.fi>
+     */
+    if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
+        uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
+      ff.bytes += packetbuf_datalen();
+      ff.frames ++;
+    }
+#endif /* SICSLOWPAN_CONF_FLOWFILTER */
+
     send_packet(&dest);
   }
   return 1;
@@ -1683,6 +1759,11 @@ output(const uip_lladdr_t *localdest)
  * \note We do not check for overlapping sicslowpan fragments
  * (it is a SHALL in the RFC 4944 and should never happen)
  */
+ /*
+  * Add several printfs to show exceptions when assembling fragments
+  * The printf messages start with "siclowpan input: discard or drop"
+  * Added by Yang Deng <yang.deng@aalto.fi>
+  */
 static void
 input(void)
 {
@@ -1697,8 +1778,6 @@ input(void)
   uint8_t first_fragment = 0, last_fragment = 0;
 #endif /*SICSLOWPAN_CONF_FRAG*/
 
-  static uint8_t  frag_flag = 0;
-  static uint8_t  fragn_flag = 0;
   /* init */
   uncomp_hdr_len = 0;
   packetbuf_hdr_len = 0;
@@ -1712,12 +1791,11 @@ input(void)
 #if SICSLOWPAN_CONF_FRAG
   /* if reassembly timed out, cancel it */
   if(timer_expired(&reass_timer)) {
+    if (processed_ip_in_len > 0) {
+      printf("siclowpan input: discard last frags due to timer expired.\n");
+    }
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
-    if (frag_flag) {
-    	printf("siclowpan: frag timer expired.\n");
-        frag_flag = 0;
-    }
   }
   /*
    * Since we don't support the mesh and broadcast header, the first header
@@ -1782,10 +1860,14 @@ input(void)
 
   if(!is_fragment) {
     /* Prioritize non-fragment packets too. */
+    if (processed_ip_in_len > 0) {
+      printf("sicslowpan input: discard last frags due to new packet\n");
+    }
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
   } else if(processed_ip_in_len > 0 && first_fragment
       && !linkaddr_cmp(&frag_sender, packetbuf_addr(PACKETBUF_ADDR_SENDER))) {
+    printf("sicslowpan input: discard last frags due to new fragment\n");
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
   }
@@ -1804,8 +1886,7 @@ input(void)
        * being reassembled or the packet is not a fragment.
        */
       PRINTFI("sicslowpan input: Dropping 6lowpan packet that is not a fragment of the packet currently being reassembled\n");
-      printf("sicslowpan input: Drop packet not being reassembled\n");
-
+      printf("sicslowpan input: drop current frag due to mismatch\n");
       return;
     }
   } else {
@@ -1817,6 +1898,7 @@ input(void)
       /* We are currently not reassembling a packet, but have received a packet fragment
        * that is not the first one. */
       if(is_fragment && !first_fragment) {
+        printf("sicslowpan input: drop current frag due to first one is missing\n");
         return;
       }
 
@@ -1824,22 +1906,19 @@ input(void)
       reass_tag = frag_tag;
 
       // ftime = clock_fine();
-      printf("sicslowpan: %lu REASS START from ", clock_time());
-      uip_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
-      printf("\n");
+//      printf("sicslowpan: %lu REASS START from ", clock_time());
+//      uip_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
+//      printf("\n");
 
       timer_set(&reass_timer, SICSLOWPAN_REASS_MAXAGE * CLOCK_SECOND / 16);
       PRINTFI("sicslowpan input: INIT FRAGMENTATION (len %d, tag %d)\n",
              sicslowpan_len, reass_tag);
-      frag_flag = 1;
-      fragn_flag = 0;
       linkaddr_copy(&frag_sender, packetbuf_addr(PACKETBUF_ADDR_SENDER));
     }
   }
 
   if(packetbuf_hdr_len == SICSLOWPAN_FRAGN_HDR_LEN) {
     /* this is a FRAGN, skip the header compression dispatch section */
-    fragn_flag++;
     goto copypayload;
   }
 #endif /* SICSLOWPAN_CONF_FRAG */
@@ -1889,7 +1968,7 @@ input(void)
    */
   if(packetbuf_datalen() < packetbuf_hdr_len) {
     PRINTF("SICSLOWPAN: packet dropped due to header > total packet\n");
-    printf("sicslowpan: packet dropped due to header > total packet\n");
+//    printf("sicslowpan: packet dropped due to header > total packet\n");
     return;
   }
   packetbuf_payload_len = packetbuf_datalen() - packetbuf_hdr_len;
@@ -1933,12 +2012,10 @@ input(void)
 #if SICSLOWPAN_CONF_FRAG
   }
 /*
-  if(frag_flag) {
-    if(fragn_flag) {
-        printf("sicslowpan: REASS FN DONE\n");
-    } else {
-        printf("sicslowpan: REASS F1 DONE\n");
-    }
+  if(first_fragment) {
+    printf("sicslowpan: REASS F1 DONE\n");
+  } else {
+    printf("sicslowpan: REASS FN DONE\n");
   }
 */
   /*
@@ -1948,10 +2025,12 @@ input(void)
   PRINTF("sicslowpan_init processed_ip_in_len %d, sicslowpan_len %d\n",
          processed_ip_in_len, sicslowpan_len);
   if(processed_ip_in_len == 0 || (processed_ip_in_len == sicslowpan_len)) {
-  	if(frag_flag) {
-  		//ftime = clock_fine();
-  		printf("sicslowpan: %lu REASS END num %u\n", clock_time(), fragn_flag + frag_flag);
+/*  	
+    if(processed_ip_in_len > 0) {
+  		ftime = clock_fine();
+  		printf("sicslowpan: %lu REASS END\n", clock_time());
   	}
+*/
     PRINTFI("sicslowpan input: IP packet ready (length %d)\n",
            sicslowpan_len);
 
@@ -1959,7 +2038,6 @@ input(void)
     uip_len = sicslowpan_len;
     sicslowpan_len = 0;
     processed_ip_in_len = 0;
-    frag_flag = 0;
 #endif /* SICSLOWPAN_CONF_FRAG */
 
 #if DEBUG
@@ -2187,6 +2265,10 @@ sicslowpan_init(void)
 #endif /* SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS > 1 */
 
 #endif /* SICSLOWPAN_COMPRESSION == SICSLOWPAN_COMPRESSION_HC06 */
+
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+  flow_filter_set(8, 7);
+#endif
 }
 /*--------------------------------------------------------------------*/
 int

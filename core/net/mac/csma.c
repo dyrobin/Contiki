@@ -64,11 +64,13 @@
 #define PRINTF(...)
 #endif /* DEBUG */
 
+#define VERBOSE_LOG 0
+
 #ifndef CSMA_MAX_BACKOFF_EXPONENT
 #ifdef CSMA_CONF_MAX_BACKOFF_EXPONENT
 #define CSMA_MAX_BACKOFF_EXPONENT CSMA_CONF_MAX_BACKOFF_EXPONENT
 #else
-#define CSMA_MAX_BACKOFF_EXPONENT 3
+#define CSMA_MAX_BACKOFF_EXPONENT 2
 #endif /* CSMA_CONF_MAX_BACKOFF_EXPONENT */
 #endif /* CSMA_MAX_BACKOFF_EXPONENT */
 
@@ -109,7 +111,7 @@ struct neighbor_queue {
 #ifdef CSMA_CONF_MAX_NEIGHBOR_QUEUES
 #define CSMA_MAX_NEIGHBOR_QUEUES CSMA_CONF_MAX_NEIGHBOR_QUEUES
 #else
-#define CSMA_MAX_NEIGHBOR_QUEUES 2
+#define CSMA_MAX_NEIGHBOR_QUEUES 4
 #endif /* CSMA_CONF_MAX_NEIGHBOR_QUEUES */
 
 #define MAX_QUEUED_PACKETS QUEUEBUF_NUM
@@ -138,26 +140,29 @@ neighbor_queue_from_addr(const linkaddr_t *addr)
 static clock_time_t
 default_timebase(void)
 {
-  clock_time_t time;
-  /* The retransmission time must be proportional to the channel
-     check interval of the underlying radio duty cycling layer. */
-  time = NETSTACK_RDC.channel_check_interval();
+//  clock_time_t time;
+//  /* The retransmission time must be proportional to the channel
+//     check interval of the underlying radio duty cycling layer. */
+//  time = NETSTACK_RDC.channel_check_interval();//
+//  /* If the radio duty cycle has no channel check interval (i.e., it
+//     does not turn the radio off), we make the retransmission time
+//     proportional to the configured MAC channel check rate. *///
+//  if(time == 0) {
+//    time = CLOCK_SECOND / NETSTACK_RDC_CHANNEL_CHECK_RATE;
+//  }
+//  return time;
 
-  /* If the radio duty cycle has no channel check interval (i.e., it
-     does not turn the radio off), we make the retransmission time
-     proportional to the configured MAC channel check rate. */
+  /*
+   * According to 802.15.4 standard 5.1.1.4 and Figure 11, before sending we 
+   * should delay for random (2^BE - 1) unit backoff periods. In Table 51, 
+   * aUnitBackoffPeriod = 20 symbols, macMinBE = 3 and macMaxBE = 5. 
+   * In CC2420 a symbols period is 16us so we set default time is 
+   * (2^3 - 1) * 20 * 16 = 2.2 ms.
+   * We have to set CLOCK_CONF_SECOND to 1024 to meet the timing requirement.
+   * Added by Yang Deng <yang.deng@aalto.fi>
+   */
 
-  /* If radio is alway on and CSMA_BACKOFF_IMM is defined, retransmission 
-   * is triggered immediately.
-   * Modified by Yang Deng <yang.deng@aalto.fi> */
-
-  if(time == 0) {
-#ifndef CSMA_BACKOFF_IMM
-    time = CLOCK_SECOND / NETSTACK_RDC_CHANNEL_CHECK_RATE;
-#endif
-  }
-
-  return time;
+  return 3;
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -173,7 +178,9 @@ transmit_packet_list(void *ptr)
 #ifdef CSMA_CONF_TIMESTAMP      
       if(n->transmissions == 0) n->tx_time = clock_time();
 #endif
-      NETSTACK_RDC.send_list(packet_sent, n, q);
+//      NETSTACK_RDC.send_list(packet_sent, n, q);
+      queuebuf_to_packetbuf(q->buf);
+      NETSTACK_RDC.send(packet_sent, n);
     }
   }
 }
@@ -196,8 +203,11 @@ free_packet(struct neighbor_queue *n, struct rdc_buf_list *p)
       n->collisions = 0;
       n->deferrals = 0;
       /* Set a timer for next transmissions */
-      ctimer_set(&n->transmit_timer, default_timebase(),
-                 transmit_packet_list, n);
+//      ctimer_set(&n->transmit_timer, default_timebase(),
+//                 transmit_packet_list, n);
+      ctimer_set(&n->transmit_timer, random_rand() % default_timebase() + 1, 
+                transmit_packet_list, n);
+
     } else {
       /* This was the last packet in the queue, we free the neighbor */
       ctimer_stop(&n->transmit_timer);
@@ -261,11 +271,11 @@ packet_sent(void *ptr, int status, int num_transmissions)
         switch(status) {
         case MAC_TX_COLLISION:
           PRINTF("csma: rexmit collision %d\n", n->transmissions);
-          printf("csma: rexmit collision %d\n", n->transmissions);
+//          printf("csma: rexmit collision %d\n", n->transmissions);
           break;
         case MAC_TX_NOACK:
           PRINTF("csma: rexmit noack %d\n", n->transmissions);
-          printf("csma: rexmit noack %d\n", n->transmissions);
+//          printf("csma: rexmit noack %d\n", n->transmissions);
           break;
         default:
           PRINTF("csma: rexmit err %d, %d\n", status, n->transmissions);
@@ -290,10 +300,17 @@ packet_sent(void *ptr, int status, int num_transmissions)
 
         /* Pick a time for next transmission, within the interval:
          * [time, time + 2^backoff_exponent * time[ */
-        time = time + (random_rand() % (backoff_transmissions * time));
+//        time = time + (random_rand() % (backoff_transmissions * time));
+
+        time = (random_rand() % (backoff_transmissions * time)) + 1;
 
         if(n->transmissions < metadata->max_transmissions) {
           PRINTF("csma: retransmitting with time %lu %p\n", time, q);
+#if VERBOSE_LOG
+          printf("csma: retx %d backoff %lu %p to ", n->transmissions, time, q);
+          uip_debug_lladdr_print((uip_lladdr_t *)&n->addr);
+          printf("\n");
+#endif
           ctimer_set(&n->transmit_timer, time,
                      transmit_packet_list, n);
           /* This is needed to correctly attribute energy that we spent
@@ -311,9 +328,11 @@ packet_sent(void *ptr, int status, int num_transmissions)
       } else {
         if(status == MAC_TX_OK) {
           PRINTF("csma: rexmit ok %d\n", n->transmissions);
+#if VERBOSE_LOG
           printf("csma: Frame SENT %d to ", n->transmissions);
           uip_debug_lladdr_print((uip_lladdr_t *)&n->addr);
           printf("\n");
+#endif
         } else {
           PRINTF("csma: rexmit failed %d: %d\n", n->transmissions, status);
           printf("csma: failed %d\n", n->transmissions);
@@ -393,8 +412,13 @@ send_packet(mac_callback_t sent, void *ptr)
           }
 
           /* If q is the first packet in the neighbor's queue, send asap */
+          /*
+           * We will wait for random default_timebase before sending first packet.
+           * Added by Yang Deng <yang.deng@aalto.fi> 
+           */
           if(list_head(n->queued_packet_list) == q) {
-            ctimer_set(&n->transmit_timer, 0, transmit_packet_list, n);
+//            ctimer_set(&n->transmit_timer, 0, transmit_packet_list, n);
+            ctimer_set(&n->transmit_timer, random_rand() % default_timebase() + 1, transmit_packet_list, n);
           }
           return;
         }

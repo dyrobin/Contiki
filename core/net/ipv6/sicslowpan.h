@@ -322,6 +322,26 @@ int sicslowpan_get_last_rssi(void);
 
 extern const struct network_driver sicslowpan_driver;
 
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+/* FLow Filter
+ * Note that for simplicity only src_addr and dst_addr are used to determine a flow
+ * Added by Yang Deng <yang.deng@aalto.fi>
+ */
+typedef struct flow_filter_t {
+  uip_ipaddr_t sipaddr;
+  uip_ipaddr_t ripaddr;
+
+  uint32_t bytes;
+  uint16_t frames;
+  uint8_t frags;
+} flow_filter_t;
+
+void flow_filter_set(uint16_t src_nodeid, uint16_t dst_nodeid);
+void flow_filter_clear();
+void flow_filter_print();
+
+#endif /* SICSLOWPAN_CONF_FLOWFILTER */
+
  #if 0
 /**
  * For testing purpose

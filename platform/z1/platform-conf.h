@@ -51,7 +51,7 @@
 //Enric #define F_CPU 3900000uL /*2457600uL*/
 
 /* Our clock resolution, this is the same as Unix HZ. */
-#define CLOCK_CONF_SECOND 128UL
+#define CLOCK_CONF_SECOND 1024UL
 
 #define BAUD2UBR(baud) ((F_CPU/baud))
 
@@ -166,10 +166,12 @@ typedef unsigned long off_t;
 
 /* 
  * 1 instruction cycle ~= 62.5 ns (MSP430F2617 @ 16MHz)
+ *                     ~= 125 ns  (MSP430F2617 @ 8MHz)
  * 1 loop ~= 2 cycles = 125 ns (at least)
- * 1 symbol = 8 us (CC2420)
+ * 1 symbol = 16 us (CC2420)
  * TX starts after 8 or 12 symbols and 20 is taken here to ensure TX happens
- * LOOP_COUNT = 20 * 8 * 1000 / 125 = 1280 (at most)
+ * LOOP_COUNT = 20 * 16 * 1000 / (62.5 * 2) = 2560 (at most @ 16MHz)
+ * LOOP_COUNT = 20 * 16 * 1000 / (125 * 2 ) = 1280 (at most @ 8MHz)
  * Modified by Yang Deng <yang.deng@aalto.fi>
  */
 #define CC2420_CONF_SYMBOL_LOOP_COUNT (1280)

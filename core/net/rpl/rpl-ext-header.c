@@ -169,6 +169,12 @@ set_rpl_opt(unsigned uip_ext_opt_offset)
   }
 }
 /*---------------------------------------------------------------------------*/
+
+/* Router will call this function to insert empty RPL option if it doesn't exist.
+ * And if does exist, update the RPL option accordingly. Note that the empty RPL
+ * option will be updated by rpl_update_header_final() when determining nexthop.
+ * Commented by Yang Deng <yang.deng@aalto.fil>
+ */
 void
 rpl_update_header_empty(void)
 {
@@ -355,5 +361,6 @@ rpl_insert_header(void)
     }
   }
 }
+
 /*---------------------------------------------------------------------------*/
 #endif /* UIP_CONF_IPV6 */

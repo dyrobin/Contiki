@@ -94,6 +94,7 @@ msp430_quick_synch_dco(void) {
   uint16_t dco_reg = 0x0fff;
   uint8_t current_bit = 12;
   uint16_t i;
+
   /*  DELTA_2 assumes an ACLK of 32768 Hz */
 #define DELTA_2    ((MSP430_CPU_SPEED) / 32768)
 
@@ -133,9 +134,9 @@ msp430_quick_synch_dco(void) {
     while(!(TBCCTL6 & CCIFG));
     diff = TBCCR6 - last;
 
-/*     /\* store what was run during the specific test *\/ */
-/*     dcos[current_bit] = dco_reg; */
-/*     vals[current_bit] = diff; */
+/*    /\* store what was run during the specific test *\/ */
+/*    dcos[current_bit] = dco_reg; */
+/*    vals[current_bit] = diff; */
 
     /* should we keep the bit cleared or not ? */
     if(diff < DELTA_2) { /* DCO is too slow - fewer ticks than desired */

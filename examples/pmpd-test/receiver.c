@@ -31,20 +31,20 @@ tcpip_handler(void)
 
   if(uip_newdata()) {
     appdata = (char *)uip_appdata;
-    printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0],
-           appdata[1], appdata[2], uip_datalen());
-    uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-    printf("\n");
+//    printf("APP: data no: %c%c%c recieved of size %d from ", appdata[0],
+//           appdata[1], appdata[2], uip_datalen());
+//    uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+//    printf("\n");
 
-    if(appdata[0] == 'h')
-      return;
-
-    sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
-
-//        printf("APP: send %s to ", buf);
-//        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-//        printf("\n");
-
+    if(appdata[0] == 'h') {
+      sprintf(buf, "hello buddy");
+    } else {
+      sprintf(buf, "ACK%c%c%c", appdata[0], appdata[1], appdata[2]);
+//      printf("APP: send %s to ", buf);
+//      uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+//      printf("\n");
+    }
+    
     uip_ipaddr_copy(&uip_udp_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
     uip_udp_packet_send(uip_udp_conn, buf, strlen(buf));
     memset(&uip_udp_conn->ripaddr, 0, sizeof(uip_udp_conn->ripaddr));
@@ -96,8 +96,8 @@ PROCESS_THREAD(child_shell_process, ev, data)
 
   struct uip_udp_conn *server_conn;
 
-  server_conn = udp_new(NULL, UIP_HTONS(3001), NULL);
-  udp_bind(server_conn, UIP_HTONS(3000));
+  server_conn = udp_new(NULL, UIP_HTONS(61617), NULL);
+  udp_bind(server_conn, UIP_HTONS(61616));
 
   while(1) {
     PROCESS_YIELD();

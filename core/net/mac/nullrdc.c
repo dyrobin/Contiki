@@ -111,6 +111,15 @@
 
 #define ACK_LEN 3
 
+#define BUSYWAIT_UNTIL(cond, max_time)                                  \
+  do {                                                                  \
+    rtimer_clock_t t0;                                                  \
+    t0 = RTIMER_NOW();                                                  \
+    while(!(cond) && RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + (max_time)));   \
+    PRINTF("nullrdc: wait %u\n", RTIMER_NOW() - t0);                    \
+  } while(0)
+
+
 /*---------------------------------------------------------------------------*/
 static int
 send_one_packet(mac_callback_t sent, void *ptr)
@@ -160,56 +169,83 @@ send_one_packet(mac_callback_t sent, void *ptr)
         if(is_broadcast) {
           ret = MAC_TX_OK;
         } else {
-          rtimer_clock_t wt;
-
-          /* Check for ack */
-          wt = RTIMER_NOW();
-          watchdog_periodic();
-          /* TODO: BUSY_WAIT_UNTIL
-           * ACK will be sent after 12 symbol periods if frame is received
-           * Considering any possible delay we wait for 400 us here.
-           * Commented by Yang Deng <yang.deng@aalto.fi>
+          /*
+           * Replace the original implementation with BUSYWAIT_UNTIL and wait for
+           * macAckWaitDuration = aUnitBackoffPeriod + aTurnaroundTime + 
+           *                      phySHRDuration + ceiling ( 6 × phySymbolsPerOctet )
+           *                    = 20 + 12 + (5 * 8 / 4) + (6 * 8 / 4) = 54 symbols 
+           *                    = 864 us ~= 1 ms
+           * Modified by Yang Deng <yang.deng@aalto.fi>
            */
-          while(RTIMER_CLOCK_LT(RTIMER_NOW(), wt + ACK_WAIT_TIME)) {
-#if CONTIKI_TARGET_COOJA
-            simProcessRunValue = 1;
-            cooja_mt_yield();
-#endif /* CONTIKI_TARGET_COOJA */
-          }
+          int len;
+          uint8_t ackbuf[ACK_LEN];
 
-          ret = MAC_TX_NOACK;
-          if(NETSTACK_RADIO.receiving_packet() ||
-            NETSTACK_RADIO.pending_packet() ||
-            NETSTACK_RADIO.channel_clear() == 0) {
-            int len;
-            uint8_t ackbuf[ACK_LEN];
-
-            if(AFTER_ACK_DETECTED_WAIT_TIME > 0) {
-              wt = RTIMER_NOW();
-              watchdog_periodic();
-              while(RTIMER_CLOCK_LT(RTIMER_NOW(),
-                                    wt + AFTER_ACK_DETECTED_WAIT_TIME)) {
-#if CONTIKI_TARGET_COOJA
-                simProcessRunValue = 1;
-                cooja_mt_yield();
-#endif /* CONTIKI_TARGET_COOJA */
-              }
-            }
-
-            if(NETSTACK_RADIO.pending_packet()) {
-              len = NETSTACK_RADIO.read(ackbuf, ACK_LEN);
-              if(len == ACK_LEN && ackbuf[2] == dsn) {
-                /* Ack received */
-                RIMESTATS_ADD(ackrx);
-                ret = MAC_TX_OK;
-              } else {
-                /* Not an ack or ack not for us: collision */
-                ret = MAC_TX_COLLISION;
-              }
+          watchdog_periodic();
+          BUSYWAIT_UNTIL(NETSTACK_RADIO.pending_packet(), RTIMER_SECOND / 1000);
+          if (NETSTACK_RADIO.pending_packet()) {
+            len = NETSTACK_RADIO.read(ackbuf, ACK_LEN);
+            if(len == ACK_LEN && ackbuf[2] == dsn) {
+              /* Ack received */
+              RIMESTATS_ADD(ackrx);
+              ret = MAC_TX_OK;
+            } else {
+              /* Not an ack or ack not for us: collision */
+              ret = MAC_TX_COLLISION;
             }
           } else {
-            PRINTF("nullrdc tx noack\n");
+              ret = MAC_TX_NOACK;
           }
+
+//          rtimer_clock_t wt;//
+
+//          /* Check for ack */
+//          wt = RTIMER_NOW();
+//          watchdog_periodic();
+//          /* 
+//           * ACK will be sent after 12 symbol periods if frame is received
+//           * Considering any possible delay we wait for 400 us here.
+//           * Commented by Yang Deng <yang.deng@aalto.fi>
+//           */
+//          while(RTIMER_CLOCK_LT(RTIMER_NOW(), wt + ACK_WAIT_TIME)) {
+//#if CONTIKI_TARGET_COOJA
+//            simProcessRunValue = 1;
+//            cooja_mt_yield();
+//#endif /* CONTIKI_TARGET_COOJA */
+//          }//
+
+//          ret = MAC_TX_NOACK;
+//          if(NETSTACK_RADIO.receiving_packet() ||
+//            NETSTACK_RADIO.pending_packet() ||
+//            NETSTACK_RADIO.channel_clear() == 0) {
+//            int len;
+//            uint8_t ackbuf[ACK_LEN];//
+
+//            if(AFTER_ACK_DETECTED_WAIT_TIME > 0) {
+//              wt = RTIMER_NOW();
+//              watchdog_periodic();
+//              while(RTIMER_CLOCK_LT(RTIMER_NOW(),
+//                                    wt + AFTER_ACK_DETECTED_WAIT_TIME)) {
+//#if CONTIKI_TARGET_COOJA
+//                simProcessRunValue = 1;
+//                cooja_mt_yield();
+//#endif /* CONTIKI_TARGET_COOJA */
+//              }
+//            }//
+
+//            if(NETSTACK_RADIO.pending_packet()) {
+//              len = NETSTACK_RADIO.read(ackbuf, ACK_LEN);
+//              if(len == ACK_LEN && ackbuf[2] == dsn) {
+//                /* Ack received */
+//                RIMESTATS_ADD(ackrx);
+//                ret = MAC_TX_OK;
+//              } else {
+//                /* Not an ack or ack not for us: collision */
+//                ret = MAC_TX_COLLISION;
+//              }
+//            }
+//          } else {
+//            PRINTF("nullrdc tx noack\n");
+//          }
         }
         break;
       case RADIO_TX_COLLISION:
