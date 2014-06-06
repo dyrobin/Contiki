@@ -330,15 +330,18 @@ extern const struct network_driver sicslowpan_driver;
 typedef struct flow_filter_t {
   uip_ipaddr_t sipaddr;
   uip_ipaddr_t ripaddr;
+  uint16_t channel;
 
-  uint32_t bytes;
-  uint16_t frames;
-  uint8_t frags;
+  uint32_t xpcdBytes;
+  uint32_t actlBytes;
+  uint16_t xpcdFrames;
+  uint16_t actlFrames;
+  uint8_t maxFrag;
 } flow_filter_t;
 
-void flow_filter_set(uint16_t src_nodeid, uint16_t dst_nodeid);
-void flow_filter_clear();
-void flow_filter_print();
+extern flow_filter_t ff;
+
+void flow_filter_print(char type);
 
 #endif /* SICSLOWPAN_CONF_FLOWFILTER */
 

@@ -276,29 +276,31 @@ static int last_rssi;
 /* FLow Filter
  * Added by Yang Deng <yang.deng@aalto.fi>
  */
-static flow_filter_t ff;
+flow_filter_t ff;
 
-void 
-flow_filter_set(uint16_t src_nodeid, uint16_t dst_nodeid)
-{
-  flow_filter_clear();
-  
-  uip_ip6addr(&ff.sipaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, src_nodeid);
-  uip_ip6addr(&ff.ripaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, dst_nodeid);
-}
-
-void
+static void
 flow_filter_clear()
 {
   memset(&ff, 0, sizeof(ff));
 }
 
-void
-flow_filter_print()
+static void 
+flow_filter_set(uint16_t src_nodeid, uint16_t dst_nodeid, packetbuf_attr_t channel)
 {
-  printf("%u frames %lu bytes %u frags\n", ff.frames, ff.bytes, ff.frags);
+  flow_filter_clear();
+  
+  uip_ip6addr(&ff.sipaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, src_nodeid);
+  uip_ip6addr(&ff.ripaddr, 0xaaaa, 0x0, 0x0, 0x0, 0xc30c, 0x0, 0x0, dst_nodeid);
+  ff.channel = channel;
 }
 
+void
+flow_filter_print(char opt)
+{
+  printf("%u frames %lu bytes %u frags\n", ff.actlFrames, ff.actlBytes, ff.maxFrag);
+  if (opt == 'e')
+    printf("EXPECTED: %u frames %lu bytes\n", ff.xpcdFrames, ff.xpcdBytes);
+}
 #endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
 /*-------------------------------------------------------------------------*/
@@ -1592,13 +1594,17 @@ output(const uip_lladdr_t *localdest)
     packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
 
 #ifdef SICSLOWPAN_CONF_FLOWFILTER
-    /* collecting information for the filtered packets 
+    /* Mark frames with channel number here. Collecting expected values here 
+     * but actual values will be collected at RDC layer.
      * Added by Yang Deng <yang.deng@aalto.fi>
      */
     if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
         uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
-      ff.bytes += packetbuf_datalen();
-      ff.frames ++;
+      packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, ff.channel);
+
+//      printf("ebytes %d\n", packetbuf_datalen() + framer_hdrlen);
+      ff.xpcdBytes += packetbuf_datalen() + framer_hdrlen;
+      ff.xpcdFrames ++;
     }
 #endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
@@ -1670,14 +1676,18 @@ output(const uip_lladdr_t *localdest)
       packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
 
 #ifdef SICSLOWPAN_CONF_FLOWFILTER
-    /* collecting information for the filtered packets 
-     * Added by Yang Deng <yang.deng@aalto.fi>
-     */
-    if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
-        uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
-      ff.bytes += packetbuf_datalen();
-      ff.frames ++;
-    }
+      /* Mark frames with channel number here. Collecting expected values here 
+       * but actual values will be collected at RDC layer.
+       * Added by Yang Deng <yang.deng@aalto.fi>
+       */
+      if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
+          uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
+        packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, ff.channel);
+
+//        printf("ebytes %d\n", packetbuf_datalen() + framer_hdrlen);
+        ff.xpcdBytes += packetbuf_datalen() + framer_hdrlen;
+        ff.xpcdFrames ++;
+      }
 #endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
       /* The code embraced by #if 0 and #endif seems not to be neccessary.
@@ -1714,7 +1724,7 @@ output(const uip_lladdr_t *localdest)
     /* record the number of fragments
      * Added by Yang Deng <yang.deng@aalto.fi>
      */
-    if (num_frag > ff.frags) ff.frags = num_frag;
+    if (num_frag > ff.maxFrag) ff.maxFrag = num_frag;
 //    printf("sicslowpan: num of fragments = %u\n", num_frag);
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
@@ -1731,13 +1741,17 @@ output(const uip_lladdr_t *localdest)
     packetbuf_set_datalen(uip_len - uncomp_hdr_len + packetbuf_hdr_len);
     
 #ifdef SICSLOWPAN_CONF_FLOWFILTER
-    /* collecting information for the filtered packets 
+    /* Mark frames with channel number here. Collecting expected values here 
+     * but actual values will be collected at RDC layer.
      * Added by Yang Deng <yang.deng@aalto.fi>
      */
     if (uip_ipaddr_cmp(&UIP_IP_BUF->destipaddr, &ff.ripaddr) &&
         uip_ipaddr_cmp(&UIP_IP_BUF->srcipaddr, &ff.sipaddr)) {
-      ff.bytes += packetbuf_datalen();
-      ff.frames ++;
+      packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, ff.channel);
+
+//      printf("ebytes %d\n", packetbuf_datalen() + framer_hdrlen);
+      ff.xpcdBytes += packetbuf_datalen() + framer_hdrlen;
+      ff.xpcdFrames ++;
     }
 #endif /* SICSLOWPAN_CONF_FLOWFILTER */
 
@@ -2267,7 +2281,7 @@ sicslowpan_init(void)
 #endif /* SICSLOWPAN_COMPRESSION == SICSLOWPAN_COMPRESSION_HC06 */
 
 #ifdef SICSLOWPAN_CONF_FLOWFILTER
-  flow_filter_set(8, 7);
+  flow_filter_set(8, 7, 12345);
 #endif
 }
 /*--------------------------------------------------------------------*/

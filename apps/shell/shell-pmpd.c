@@ -24,6 +24,7 @@
 #include "sys/clock.h"
 #include "lib/random.h"
 
+#define DYNAMIC_TPDU_ENABLED  1
 
 #if PMPD_ENABLED == 1
 #include "net/ipv6/pmpd.h"
@@ -108,6 +109,12 @@ PROCESS_THREAD(shell_send_process, ev, data)
   static uint16_t maxTPDU;
 #endif
 
+#if DYNAMIC_TPDU_ENABLED == 1
+  #define sz6lwpnFrag     65
+  #define max6lwpnFrags   6
+  static uint8_t n6lwpnFrags;
+#endif
+
   PROCESS_BEGIN();
   /* parse arguments */
   const char *nextptr;
@@ -129,6 +136,10 @@ PROCESS_THREAD(shell_send_process, ev, data)
     printf("APP: pmpd Failed\n");
     PROCESS_EXIT();
   }
+#endif
+
+#if DYNAMIC_TPDU_ENABLED == 1
+  n6lwpnFrags = 3;
 #endif
 
   /* generate IP destaddr by nodeid then establish connection */
@@ -155,6 +166,10 @@ PROCESS_THREAD(shell_send_process, ev, data)
         szTPDU = maxTPDU;
       }
 #endif
+
+#if DYNAMIC_TPDU_ENABLED == 1
+      szTPDU = sz6lwpnFrag * n6lwpnFrags;
+#endif      
       if (szTPDU > MAX_BUF_SIZE) {
         printf("APP: OOps. Buffer is not big enough.\n");
         break;
@@ -180,7 +195,7 @@ PROCESS_THREAD(shell_send_process, ev, data)
         len = szTPDU;
       }
 
-//      printf("APP: sending packet %u(%u)\n", nSeq, len);
+      printf("APP: sending packet %u(%u)\n", nSeq, len);
 //      printf("Timing: sending %lu\n", clock_time());
 
       uip_udp_packet_send(conn, buf, len);
@@ -221,6 +236,10 @@ PROCESS_THREAD(shell_send_process, ev, data)
           nSeq++;
           nSent += len;
           nTx = 0;
+#if DYNAMIC_TPDU_ENABLED == 1
+          if (n6lwpnFrags < max6lwpnFrags) n6lwpnFrags++;
+#endif
+
 //          printf("Timing: ACKed %lu\n", clock_time());
         }
 #if PMPD_ENABLED == 1
@@ -230,6 +249,9 @@ PROCESS_THREAD(shell_send_process, ev, data)
       } else {
         printf("APP: timer expired\n");
         nRetx ++;
+#if DYNAMIC_TPDU_ENABLED == 1
+        if (n6lwpnFrags > 1) n6lwpnFrags = n6lwpnFrags >> 1;
+#endif
         if (nTx >= MAX_RETX_NUM) {
           break;
         }
@@ -330,7 +352,7 @@ PROCESS_THREAD(shell_show_process, ev, data)
       r = uip_ds6_route_next(r);
     }
   } else if (type == 2) {
-    flow_filter_print();
+    flow_filter_print('a');
   } else {
     printf("Unknown type.\n");
   }

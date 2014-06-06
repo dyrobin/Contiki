@@ -119,6 +119,9 @@
     PRINTF("nullrdc: wait %u\n", RTIMER_NOW() - t0);                    \
   } while(0)
 
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#include "net/ipv6/sicslowpan.h"
+#endif
 
 /*---------------------------------------------------------------------------*/
 static int
@@ -141,6 +144,17 @@ send_one_packet(mac_callback_t sent, void *ptr)
 #ifdef NETSTACK_ENCRYPT
     NETSTACK_ENCRYPT();
 #endif /* NETSTACK_ENCRYPT */
+
+#ifdef SICSLOWPAN_CONF_FLOWFILTER
+    /* collecting actual values for specific flow
+     * Added by Yang Deng <yang.deng@aalto.fi>
+     */
+    if (packetbuf_attr(PACKETBUF_ATTR_CHANNEL) == ff.channel) {
+      ff.actlBytes += packetbuf_totlen();
+      ff.actlFrames ++;
+//      printf("Frame: %d bytes\n", packetbuf_totlen());
+    }
+#endif
 
 #if NULLRDC_802154_AUTOACK
     int is_broadcast;
