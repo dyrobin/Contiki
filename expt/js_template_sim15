@@ -1,0 +1,169 @@
+/* 
+ * This script is used to evaluate data transmission from src_id to dst_id.
+ * Authored by Yang Deng <yang.deng@aalto.fi>
+ */
+
+/********************************************************************/
+/* The following variables might be changed by other shell scripts. */
+/********************************************************************/
+var rx_pct = 100;
+var data_size = 8192;
+var tpdu_size = 390;
+
+var src_id = 8;
+var dst_id = 7;
+var root_id = 1;
+
+var times = 10;
+var logging = false;
+var bgtfc = true;
+var intvl = 5;
+
+/********************************************************************/
+/* The following lines must not be changed by other shell scripts.  */
+/********************************************************************/
+var cmd_ping = "ping " + dst_id;
+var cmd_send = "send " + dst_id + " " + data_size + " " + tpdu_size;
+var cmd_show = "show 2";
+var cmd_bgtfc = "bgtfc 1 " + intvl;
+
+if (logging) {
+    logfile = "/home/yangdeng/workspace/expt/pmpd/log/" +
+        rx_pct + "_" + data_size + "_" + tpdu_size + "_" +
+        "sim15.log";
+    log.writeFile(logfile, 
+        "rx: " + rx_pct + " data: " + data_size + " tpdu: " + tpdu_size + "\n");
+}
+
+// Wait 60 seconds for establishing routing
+log.log("waiting for route establishment... ");
+GENERATE_MSG(60000, "route established");
+YIELD_THEN_WAIT_UNTIL(msg.equals("route established"));
+log.log("OK.\n");
+
+
+var allmotes = sim.getMotes();
+var srcmote = sim.getMoteWithID(src_id);
+var dstmote = sim.getMoteWithID(dst_id);
+var rootmote = sim.getMoteWithID(root_id);
+
+// generate background traffic if set
+if (bgtfc) {
+    log.log("starting background generator... ");
+    for (var i = 0; i < allmotes.length; i++) {
+        if (allmotes[i] != srcmote &&
+            allmotes[i] != dstmote &&
+            allmotes[i] != rootmote)
+        write(allmotes[i], cmd_bgtfc);
+    }
+    log.log("OK.\n");
+}
+
+// check if node dst_id is reachable, 5 tries at most 
+for (var i = 0; i < 5; i++) {
+    log.log("node " + src_id + " is pinging node " + dst_id + " ... ");
+    var success = false;
+    write(srcmote, cmd_ping);
+    while (true) {
+        YIELD();
+        if (mote == srcmote) {
+            if (msg.equals("OK.")) {
+                log.log("OK.\n");
+                success = true;
+                break;
+            } else if (msg.equals("Failed.")) {
+                log.log("Failed.\n");
+                success = false;
+                break;
+            }
+        }
+    }
+    if (success) break;
+    if (i == 4) {
+        log.log("\n");
+        log.testFailed();
+    }
+}
+
+// start evaluating
+var last_frames = 0, last_bytes = 0;
+for (var i = 0; i < times; i++) {
+    log.log("\n");
+    log.log("node " + src_id + " is transmitting to node " + dst_id + " ... ");
+
+    var success = false;
+    var sTime, eTime, duration, packets, retxs;
+    write(srcmote, cmd_send);
+    while(true) {
+        YIELD();
+        if (mote == srcmote) {
+            if (msg.startsWith("APP: start sending")) {
+                sTime = time;
+            } else if (msg.startsWith("APP: Done.")) {
+                eTime = time;
+                log.log("OK.\n");
+                success = true;
+                // collect information from sender if ok
+                var tmp = msg.substring(msg.indexOf("Time"));
+                var tokens = tmp.split(" ");
+                duration = parseInt(tokens[1]);
+                packets = parseInt(tokens[3]);
+                retxs = parseInt(tokens[5]);
+                break;
+            } else if (msg.startsWith("APP: Failed.")) {
+                log.log("Failed.\n");
+                success = false;
+                break;
+            }
+        }
+    }
+
+    // collecting information from all nodes
+    var frames = 0, bytes = 0, frags = 0;
+    for (var j = 0; j < allmotes.length; j++) {
+
+        var frame = NaN, byte = NaN, frag = NaN;
+        while (isNaN(frame) || isNaN(byte) || isNaN(frag)) {
+            write(allmotes[j], cmd_show);
+            YIELD_THEN_WAIT_UNTIL(allmotes[j] == mote);
+            log.log(allmotes[j].getID() + ": " + msg + "\n");
+            var tokens = msg.split(" ");
+            frame = parseInt(tokens[0]);
+            byte = parseInt(tokens[2]);
+            frag = parseInt(tokens[4]);
+        }
+        
+        frames += frame;
+        bytes += byte;
+        if (frag > frags) frags = frag;
+    }
+
+    if (success) {
+        // output the statistics
+        var stats = "--- Statistics ---\n" +
+                "Packets " + packets + "\t" +
+                "Retrans " + retxs + "\t" +
+                "Loss " + (retxs * 100 / (retxs + packets)).toFixed(1) + "%\n" +
+                "Fragmts " + frags + "\t" +
+                "Frames " + (frames - last_frames) + "\t" +
+                "Bytes " + (bytes - last_bytes) + "\n" +
+                "Time " + (eTime - sTime) / 1000 + 
+                        " (" + duration + ") ms" + "\n";
+
+        log.log(stats);
+        if (logging) log.append(logfile, stats);
+        // wait 10s for next
+        GENERATE_MSG(10000, "wait 10 seconds");
+        YIELD_THEN_WAIT_UNTIL(msg.equals("wait 10 seconds"));
+    } else {
+        // wait longer time for next due to failure
+        GENERATE_MSG(30000, "wait 30 seconds");
+        YIELD_THEN_WAIT_UNTIL(msg.equals("wait 30 seconds"));
+    }
+
+    last_frames = frames;
+    last_bytes = bytes;
+}
+
+log.log("\n");
+log.testOK();
