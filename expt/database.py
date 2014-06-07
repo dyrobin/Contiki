@@ -32,11 +32,12 @@ def create(dbname):
 	try:
 		with conn:
 			conn.execute("CREATE TABLE IF NOT EXISTS xprmnts ( \
+				tfcintvl INTEGER NOT NULL, \
 				rxpct INTEGER NOT NULL, \
 				tpdusize INTEGER NOT NULL, \
 				datasize INTEGER NOT NULL, \
 				exprdata ndarray, \
-				PRIMARY KEY (rxpct, tpdusize, datasize))")
+				PRIMARY KEY (tfcintvl, rxpct, tpdusize, datasize))")
 		return True
 	except db.Error as e:
 		print "Create Error:", e
@@ -51,7 +52,7 @@ def insert(dbname, results):
 	conn = db.connect(dbname, detect_types=db.PARSE_DECLTYPES)
 	try:
 		with conn:
-			conn.executemany("INSERT INTO xprmnts VALUES (?, ?, ?, ?)", results)
+			conn.executemany("INSERT INTO xprmnts VALUES (?, ?, ?, ?, ?)", results)
 		return True
 	except db.Error as e:
 		print "Insert Error:", e
@@ -59,7 +60,7 @@ def insert(dbname, results):
 	finally:
 		conn.close()
 
-def select(dbname, rxpct=-1, tpdusize=-1, datasize=-1):
+def select(dbname, tfcintvl=-1, rxpct=-1, tpdusize=-1, datasize=-1):
 	if not os.path.isfile(dbname):
 		print "Select Error: {} doesn't exist.".format(dbname)
 		return None
@@ -67,6 +68,8 @@ def select(dbname, rxpct=-1, tpdusize=-1, datasize=-1):
 	sql = "SELECT * FROM xprmnts"
 
 	conds = []
+	if tfcintvl != -1:
+		conds.append("tfcintvl={}".format(tfcintvl))
 	if rxpct != -1:
 		conds.append("rxpct={}".format(rxpct))
 	if tpdusize != -1:
