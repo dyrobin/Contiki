@@ -24,14 +24,15 @@
 #include "sys/clock.h"
 #include "lib/random.h"
 
-#define DYNAMIC_TPDU_ENABLED  1
-
 #if PMPD_ENABLED == 1
 #include "net/ipv6/pmpd.h"
 #endif
 
 #include "net/ip/uip-debug.h"
 
+/* RETRANS_TIMER and MAX_TETX_NUM is set according to
+ * http://support.microsoft.com/kb/170359
+ */
 #define 	MAX_BUF_SIZE 	512
 #define 	RETRANS_TIMER	3
 #define   MAX_RETX_NUM  5
@@ -89,44 +90,51 @@ set_ipaddr_by_nodeid(uint16_t nodeid, uip_ipaddr_t * addr)
 //}
 
 PROCESS_THREAD(shell_send_process, ev, data)
-{
-  static struct uip_udp_conn *conn;
-  static uip_ipaddr_t dest_addr;
-  static struct etimer et;
+{  
+  /* For timing */
   static clock_time_t tStart;
   static clock_time_t tEnd;
+  
+  /* For transmission keeping */
+  static struct uip_udp_conn *conn;
+  static uip_ipaddr_t dest_addr;
 
+  /* For transmission data */
   static char buf[MAX_BUF_SIZE];
   static int len;
-  
   static uint16_t szTPDU;
-  static uint16_t nSent, szFile;
+  static uint16_t szData;
+  static uint16_t nSent;
+
+  /* For transmission control */
+  static struct etimer et;
   static uint16_t nSeq;
   static uint8_t nTx;
   static uint8_t nRetx;
 
+  /* For dynamic tpdu adjustment */
+  static uint8_t DAEnabled;
+  static uint8_t nDAFrags;
+  #define szDAFrag     65
+  #define maxDAFrags   6
+
 #if PMPD_ENABLED == 1
   static uint16_t maxTPDU;
-#endif
-
-#if DYNAMIC_TPDU_ENABLED == 1
-  #define sz6lwpnFrag     65
-  #define max6lwpnFrags   6
-  static uint8_t n6lwpnFrags;
 #endif
 
   PROCESS_BEGIN();
   /* parse arguments */
   const char *nextptr;
   uint16_t nodeid = shell_strtolong(data, &nextptr);
-  szFile = shell_strtolong(nextptr, &nextptr);
-#if PMPD_ENABLED == 0
+  szData = shell_strtolong(nextptr, &nextptr);
   szTPDU = shell_strtolong(nextptr, &nextptr);
   if (szTPDU == 0) {
-    printf("shell: <TPDU> is missing.\n");
-    PROCESS_EXIT();
+    DAEnabled = 1;
+    nDAFrags = 3;
+    printf("APP: enable dynamic adjustment\n");
+  } else {
+    DAEnabled = 0;
   }
-#endif
 
 #if PMPD_ENABLED == 1
   /* Attach PMPD */
@@ -136,10 +144,6 @@ PROCESS_THREAD(shell_send_process, ev, data)
     printf("APP: pmpd Failed\n");
     PROCESS_EXIT();
   }
-#endif
-
-#if DYNAMIC_TPDU_ENABLED == 1
-  n6lwpnFrags = 3;
 #endif
 
   /* generate IP destaddr by nodeid then establish connection */
@@ -155,10 +159,10 @@ PROCESS_THREAD(shell_send_process, ev, data)
     nRetx = 0;
     etimer_set(&et, CLOCK_SECOND * RETRANS_TIMER);
 
-    /* start transmitting start */
-    printf("APP: start sending %u %u using %u\n", nodeid, szFile, szTPDU);
+    /* start transmitting data */
+    printf("APP: start sending %u %u using %u\n", nodeid, szData, szTPDU);
     tStart = clock_time();
-    while(nSent < szFile) {
+    while(nSent < szData) {
 #if PMPD_ENABLED == 1
       if(maxTPDU == 0) {
         szTPDU = pmpd_get_max_payload(&dest_addr);
@@ -166,10 +170,9 @@ PROCESS_THREAD(shell_send_process, ev, data)
         szTPDU = maxTPDU;
       }
 #endif
+      /* adjust tpdu size if enabled */
+      if (DAEnabled) szTPDU = szDAFrag * nDAFrags;
 
-#if DYNAMIC_TPDU_ENABLED == 1
-      szTPDU = sz6lwpnFrag * n6lwpnFrags;
-#endif      
       if (szTPDU > MAX_BUF_SIZE) {
         printf("APP: OOps. Buffer is not big enough.\n");
         break;
@@ -179,28 +182,23 @@ PROCESS_THREAD(shell_send_process, ev, data)
       for(i = 0; i < szTPDU; i++) {
         buf[i] = '0' + (i % 8);
       }
-
       /* fill seq */
       sprintf(buf, "%03u", nSeq);
       buf[3] = '0';
-
-      /* set length of buffer
-       * the minimum size is 3 due to seq
-       */
-      if((szFile - nSent) <= 3) {
+      /* set length of buffer; the minimum size is 3 due to seq */
+      if((szData - nSent) <= 3) {
         len = 3;
-      } else if((szFile - nSent) < szTPDU) {
-        len = szFile - nSent;
+      } else if((szData - nSent) < szTPDU) {
+        len = szData - nSent;
       } else {
         len = szTPDU;
       }
 
-      printf("APP: sending packet %u(%u)\n", nSeq, len);
+//      printf("APP: sending packet %u(%u)\n", nSeq, len);
 //      printf("Timing: sending %lu\n", clock_time());
-
+      /* send by invoking udp */
       uip_udp_packet_send(conn, buf, len);
       nTx++;
-
       /* start retrans timer */
       etimer_restart(&et);
 
@@ -210,11 +208,11 @@ PROCESS_THREAD(shell_send_process, ev, data)
         printf("APP: resend immediately as max_payload changed!\n");
         continue;
       }
-
-      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event)
-                               || (ev == pmpd_event));
+      PROCESS_WAIT_EVENT_UNTIL((ev == PROCESS_EVENT_TIMER) || 
+                               (ev == tcpip_event) || (ev == pmpd_event));
 #else
-      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
+      PROCESS_WAIT_EVENT_UNTIL((ev == PROCESS_EVENT_TIMER) || 
+                               (ev == tcpip_event));
 #endif
 
       if(ev == tcpip_event) {
@@ -225,7 +223,7 @@ PROCESS_THREAD(shell_send_process, ev, data)
                 appdata[3], appdata[4], appdata[5]);
         buf[6] = 0;
         sprintf(tmp, "ACK%03u", nSeq);
-//        printf("APP: seq = %s, ack = %s\n", &tmp[3], &buf[3]);
+//      printf("APP: seq = %s, ack = %s\n", &tmp[3], &buf[3]);
         if(strcmp(buf, tmp) == 0) {
 #if PMPD_ENABLED == 1
           // receive first ack then save max_payload
@@ -236,11 +234,9 @@ PROCESS_THREAD(shell_send_process, ev, data)
           nSeq++;
           nSent += len;
           nTx = 0;
-#if DYNAMIC_TPDU_ENABLED == 1
-          if (n6lwpnFrags < max6lwpnFrags) n6lwpnFrags++;
-#endif
 
-//          printf("Timing: ACKed %lu\n", clock_time());
+          if (DAEnabled && (nDAFrags < maxDAFrags)) nDAFrags++;
+//        printf("Timing: ACKed %lu\n", clock_time());
         }
 #if PMPD_ENABLED == 1
       } else if(ev == pmpd_event) {
@@ -249,30 +245,28 @@ PROCESS_THREAD(shell_send_process, ev, data)
       } else {
         printf("APP: timer expired\n");
         nRetx ++;
-#if DYNAMIC_TPDU_ENABLED == 1
-        if (n6lwpnFrags > 1) n6lwpnFrags = n6lwpnFrags >> 1;
-#endif
         if (nTx >= MAX_RETX_NUM) {
           break;
         }
+        if (DAEnabled) nDAFrags = 1;
       }
     }
-
-    /* finish transmitting */
     tEnd = clock_time();
 
+    /* finish transmitting */
     etimer_stop(&et);
 #if PMPD_ENABLED == 1
     maxTPDU = 0;
 #endif
-    if (nSent >= szFile) {
-      printf("APP: Done. Time: %lu Packets: %u Retrans: %u\n", tEnd - tStart, nSeq - 1, nRetx);
+    if (nSent >= szData) {
+      printf("APP: Done. Time: %lu Packets: %u Retrans: %u\n", \
+              tEnd - tStart, nSeq - 1, nRetx);
     } else {
       printf("APP: Failed.");
     }
     /* remove connection */
     uip_udp_remove(conn);
-//    printf("APP: connection removed\n");
+//  printf("APP: connection removed\n");
   } else {
     printf("APP: cannot establish connection\n");
   }
@@ -309,7 +303,8 @@ PROCESS_THREAD(shell_ping_process, ev, data)
     uip_udp_packet_send(conn, buf, strlen(buf));
     etimer_set(&et, CLOCK_SECOND * RETRANS_TIMER); 
 
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et) || (ev == tcpip_event));
+    PROCESS_WAIT_EVENT_UNTIL((ev == PROCESS_EVENT_TIMER) || 
+                             (ev == tcpip_event));
 
     if (ev == tcpip_event) {
         char *appdata = (char *)uip_appdata;
@@ -352,7 +347,11 @@ PROCESS_THREAD(shell_show_process, ev, data)
       r = uip_ds6_route_next(r);
     }
   } else if (type == 2) {
+#if SICSLOWPAN_CONF_FLOWFILTER
     flow_filter_print('a');
+#else
+    printf("Flow filter not enabled.\n");
+#endif
   } else {
     printf("Unknown type.\n");
   }

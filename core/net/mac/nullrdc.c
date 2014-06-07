@@ -119,7 +119,7 @@
     PRINTF("nullrdc: wait %u\n", RTIMER_NOW() - t0);                    \
   } while(0)
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
 #include "net/ipv6/sicslowpan.h"
 #endif
 
@@ -145,7 +145,7 @@ send_one_packet(mac_callback_t sent, void *ptr)
     NETSTACK_ENCRYPT();
 #endif /* NETSTACK_ENCRYPT */
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
     /* collecting actual values for specific flow
      * Added by Yang Deng <yang.deng@aalto.fi>
      */

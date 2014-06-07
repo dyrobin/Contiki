@@ -272,7 +272,7 @@ static struct timer reass_timer;
 
 static int last_rssi;
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
 /* FLow Filter
  * Added by Yang Deng <yang.deng@aalto.fi>
  */
@@ -1593,7 +1593,7 @@ output(const uip_lladdr_t *localdest)
            (uint8_t *)UIP_IP_BUF + uncomp_hdr_len, packetbuf_payload_len);
     packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
     /* Mark frames with channel number here. Collecting expected values here 
      * but actual values will be collected at RDC layer.
      * Added by Yang Deng <yang.deng@aalto.fi>
@@ -1675,7 +1675,7 @@ output(const uip_lladdr_t *localdest)
              (uint8_t *)UIP_IP_BUF + processed_ip_out_len, packetbuf_payload_len);
       packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
       /* Mark frames with channel number here. Collecting expected values here 
        * but actual values will be collected at RDC layer.
        * Added by Yang Deng <yang.deng@aalto.fi>
@@ -1721,11 +1721,15 @@ output(const uip_lladdr_t *localdest)
         }
       }
     }
+//    printf("sicslowpan: num of fragments = %u\n", num_frag);
+
+#if SICSLOWPAN_CONF_FLOWFILTER
     /* record the number of fragments
      * Added by Yang Deng <yang.deng@aalto.fi>
      */
     if (num_frag > ff.maxFrag) ff.maxFrag = num_frag;
-//    printf("sicslowpan: num of fragments = %u\n", num_frag);
+#endif
+
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
     return 0;
@@ -1740,7 +1744,7 @@ output(const uip_lladdr_t *localdest)
            uip_len - uncomp_hdr_len);
     packetbuf_set_datalen(uip_len - uncomp_hdr_len + packetbuf_hdr_len);
     
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
     /* Mark frames with channel number here. Collecting expected values here 
      * but actual values will be collected at RDC layer.
      * Added by Yang Deng <yang.deng@aalto.fi>
@@ -2280,7 +2284,7 @@ sicslowpan_init(void)
 
 #endif /* SICSLOWPAN_COMPRESSION == SICSLOWPAN_COMPRESSION_HC06 */
 
-#ifdef SICSLOWPAN_CONF_FLOWFILTER
+#if SICSLOWPAN_CONF_FLOWFILTER
   flow_filter_set(8, 7, 12345);
 #endif
 }

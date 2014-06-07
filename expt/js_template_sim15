@@ -6,9 +6,10 @@
 /********************************************************************/
 /* The following variables might be changed by other shell scripts. */
 /********************************************************************/
+var tfc_intvl = 0;
 var rx_pct = 100;
-var data_size = 8192;
 var tpdu_size = 390;
+var data_size = 8192;
 
 var src_id = 8;
 var dst_id = 7;
@@ -16,24 +17,27 @@ var root_id = 1;
 
 var times = 10;
 var logging = false;
-var bgtfc = true;
-var intvl = 5;
-
 /********************************************************************/
 /* The following lines must not be changed by other shell scripts.  */
 /********************************************************************/
+// output configs
+var configs = "tfc: " + tfc_intvl + "\t" +
+              "rx: " + rx_pct + "\t" +
+              "tpdu: " + tpdu_size + "\t" +
+              "data: " + data_size + "\n"
+log.log(configs);
+if (logging) {
+    logfile = "/home/yangdeng/workspace/expt/pmpd/log/" +
+        tfc_intvl + "_" + rx_pct + "_" + tpdu_size + "_" + data_size + "_" +
+        "sim15.log";
+    log.writeFile(logfile, configs);
+}
+
+// several commands
 var cmd_ping = "ping " + dst_id;
 var cmd_send = "send " + dst_id + " " + data_size + " " + tpdu_size;
 var cmd_show = "show 2";
-var cmd_bgtfc = "bgtfc 1 " + intvl;
-
-if (logging) {
-    logfile = "/home/yangdeng/workspace/expt/pmpd/log/" +
-        rx_pct + "_" + data_size + "_" + tpdu_size + "_" +
-        "sim15.log";
-    log.writeFile(logfile, 
-        "rx: " + rx_pct + " data: " + data_size + " tpdu: " + tpdu_size + "\n");
-}
+var cmd_bgtfc = "bgtfc 1 " + tfc_intvl;
 
 // Wait 60 seconds for establishing routing
 log.log("waiting for route establishment... ");
@@ -47,8 +51,8 @@ var srcmote = sim.getMoteWithID(src_id);
 var dstmote = sim.getMoteWithID(dst_id);
 var rootmote = sim.getMoteWithID(root_id);
 
-// generate background traffic if set
-if (bgtfc) {
+// generate background traffic if tfc_intvl is not zero
+if (tfc_intvl) {
     log.log("starting background generator... ");
     for (var i = 0; i < allmotes.length; i++) {
         if (allmotes[i] != srcmote &&
@@ -85,7 +89,7 @@ for (var i = 0; i < 5; i++) {
     }
 }
 
-// start evaluating
+// start evaluation
 var last_frames = 0, last_bytes = 0;
 for (var i = 0; i < times; i++) {
     log.log("\n");
