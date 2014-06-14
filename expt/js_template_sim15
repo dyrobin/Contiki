@@ -7,7 +7,7 @@
 /* The following variables might be changed by other shell scripts. */
 /********************************************************************/
 var tfc_intvl = 0;
-var rx_pct = 100;
+var rx_ratio = 100;
 var tpdu_size = 390;
 var data_size = 8192;
 
@@ -22,13 +22,13 @@ var logging = false;
 /********************************************************************/
 // output configs
 var configs = "tfc: " + tfc_intvl + "\t" +
-              "rx: " + rx_pct + "\t" +
+              "rx: " + rx_ratio + "\t" +
               "tpdu: " + tpdu_size + "\t" +
               "data: " + data_size + "\n"
 log.log(configs);
 if (logging) {
     logfile = "/home/yangdeng/workspace/expt/pmpd/log/" +
-        tfc_intvl + "_" + rx_pct + "_" + tpdu_size + "_" + data_size + "_" +
+        tfc_intvl + "_" + rx_ratio + "_" + tpdu_size + "_" + data_size + "_" +
         "sim15.log";
     log.writeFile(logfile, configs);
 }
