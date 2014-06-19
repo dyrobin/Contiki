@@ -41,7 +41,7 @@ logs = [f for f in os.listdir(path) \
 if logs:
 	results = [load_result_from_file(path, log) for log in logs]
 	#  save results in database
-	dbname = "rslts.db"
+	dbname = "raw.db"
 	if db.create(dbname) and db.insert(dbname, results):
 		print "Experiment results are loaded successfully."
 else:
