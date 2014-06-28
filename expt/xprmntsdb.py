@@ -3,31 +3,99 @@
 # well.
 # Authored by Yang Deng <yang.deng@aalto.fi>
 
-import io, os
+import io, os, re
 import sqlite3 as db, numpy as np
 
 class XprmntsDB:
+	@staticmethod
+	def __register_ndarray_type():
+		# pickle ndarray into sqlite
+		def __adapt_ndarray(array):
+			tmp = io.BytesIO()
+			np.save(tmp, array)
+			buf = buffer(tmp.getvalue())
+			tmp.close()
+			return buf
+		# unpickle ndarray from sqlite
+		def __convert_ndarray(text):
+			tmp = io.BytesIO(text)
+			array = np.load(tmp)
+			tmp.close()
+			return array
+		# register
+		db.register_adapter(np.ndarray, __adapt_ndarray)
+		db.register_converter("ndarray", __convert_ndarray)
 
-	# pickle ndarray into sqlite
-	def __adapt_ndarray(array):
-		tmp = io.BytesIO()
-		np.save(tmp, array)
-		buf = buffer(tmp.getvalue())
-		tmp.close()
-		return buf
+	# create a database if not exist
+	def __init__(self, name="xprmnts.db"):
+		if not os.path.isfile(name):
+			conn = db.connect(name, detect_types=db.PARSE_DECLTYPES)
+			with conn:
+				conn.execute("CREATE TABLE xprmnts ( \
+					tfcintvl INTEGER NOT NULL, \
+					rxpct INTEGER NOT NULL, \
+					tpdusize INTEGER NOT NULL, \
+					datasize INTEGER NOT NULL, \
+					exprdata ndarray, \
+					PRIMARY KEY (tfcintvl, rxpct, tpdusize, datasize))")
+		else:
+			conn = db.connect(name, detect_types=db.PARSE_DECLTYPES)
+		self.conn = conn
 
-	# unpickle ndarray from sqlite
-	def __convert_ndarray(text):
-		tmp = io.BytesIO(text)
-		array = np.load(tmp)
-		tmp.close()
-		return array
+	def __del__(self):
+		self.conn.close()
 
-	db.register_adapter(np.ndarray, __adapt_ndarray)
-	db.register_converter("ndarray", __convert_ndarray)
+	def load_from_file(self, path, overwrite=False):
+		if not os.path.isfile(path):
+			raise ValueError("'{}' is not a file.".format(path))
+		filename = os.path.basename(path)
+			
+		if not re.match(r"(\d+_){4}.+\.log", filename):
+			raise ValueError("'{}' has a wrong name.".format(filename))
+		tfcintvl, rxpct, tpdusize, datasize = filename.split("_")[0:4]
+		
+		metrics = []
+		with open(path) as f:
+			for line in f:
+				if "Statistics" in line:
+					# load packets, retrans and loss
+					tmp = f.next().split()[1::2]
+					metrics.extend([tmp[0], tmp[1], tmp[2].strip("%")])
+					# load fragmts, frames and bytes
+					tmp = f.next().split()[1::2]
+					metrics.extend([tmp[0], tmp[1], tmp[2]])
+					# load time, dtime
+					tmp = f.next().split()[1:3]
+					metrics.extend([tmp[0], tmp[1].strip("()")])
 
-	def __init__(self, name):
-		self.name = name
+		
+		key = (tfcintvl, rxpct, tpdusize, datasize)
+		# metrics might be empty
+		if metrics:
+			row = key + (np.array(metrics).reshape((-1, 8)),)
+		else:
+			row = key + (None,)
+
+		try:
+			with self.conn:
+				self.conn.execute(
+					"INSERT INTO xprmnts VALUES (?, ?, ?, ?, ?)", row)
+		except Exception as e:
+			print e
+			if overwrite:
+				with self.conn:
+					self.conn.execute(
+						"REPLACE INTO xprmnts VALUES (?, ?, ?, ?, ?)", row)
+
+	def load_from_directory(self, path, filter=None, overwrite=False):
+		if not os.path.isdir(path):
+			raise ValueError("'{}' is not a directory.".format(path))
+
+		files = [f for f in os.listdir(path) if os.path.isfile]
+		if filter:
+			files = 
+		else:
+			
 
 	# Several database operations
 	# Using "with" clause: If success, conn.commit() is called automatically
@@ -101,6 +169,9 @@ class XprmntsDB:
 	def remove(self):
 		if os.path.isfile(self.name):
 			os.remove(self.name)
+
+	# static initialization for class
+	__register_ndarray_type()
 
 # For test
 if __name__ == "__main__":
