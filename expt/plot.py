@@ -1,85 +1,117 @@
-#! /usr/bin/python
-import sys
-import database as db, numpy as np
+#!/usr/bin/env python
+
+import numpy as np
 import matplotlib.pyplot as plt
+from xprmntsdb import XprmntsDB
+
+class Plot:
+
+	metrics = ["packets", "retrans", "loss(%)", "frags", \
+		   	   "frames", "bytes", "time(ms)", "time2(ms)"]
+
+	def __init__(self, db):
+		if not isinstance(db, XprmntsDB):
+			raise ValueError(
+				"It requires XprmntsDB but '{}' is passed in.".format(type(db)))
+		self.db = db
 
 
-if len(sys.argv) != 3:
-	print "Usage: {} INTVL RX".format(sys.argv[0])
-	sys.exit(0)
+	def plot1(self, datasize=1024, metric=6):
+		dic = self.db.get_colvals()
+		tfcintvls = dic["tfcintvl"]
+		rxratios = dic["rxratio"]
+		if not tfcintvls or not rxratios:
+			raise ValueError("Data is not complete yet.")
 
-intvl = sys.argv[1]
-rx = sys.argv[2]
+		i, j = 0, 0
+		fig, axes = plt.subplots(len(tfcintvls), len(rxratios), 
+								 sharex=True)
+		fig.suptitle("Fig: Time vs TPDU")
+		for tfcintvl in tfcintvls:
+			for rxratio in rxratios:
+				xy = []
+				for row in self.db.retrieve_data(tfcintvl, rxratio, -1, datasize):
+					if row[4] is not None:
+						successes, _ = row[4].shape
+						sample = row[4][:, metric].astype(np.float)
+						if (successes != 10):
+							atime = np.nanmean(sample) * 1.2 * 10 / successes
+						else:
+							atime = np.nanmean(sample)
+						xy.append([row[2], atime, np.nanstd(sample), successes])
+					else:
+						xy.append([row[2], np.nan, np.nan, np.nan])
+				
+				xy.sort(key=lambda item: item[0])
+				xy = np.array(xy)
 
-dbname = "rslts.db"
+				ax = axes[i][j]
+				ax.plot(xy[:, 0], xy[:, 1], "-o", 
+							label="size {}".format(datasize))
+				ax.set_xticks(xy[:, 0])
+#				ax.set_xlabel("TPDU (bytes)")
+#				ax.set_ylabel(Plot.metrics[metric])
+				ax.set_title("tfcintvl={} rxratio={}".format(tfcintvl, rxratio))
 
-sizes = sorted(set([rsl[3] for rsl in db.select(dbname, intvl, rx)]))
+				axtw = ax.twinx()
+				axtw.plot(xy[:, 0], xy[:, 3], "r")
+				axtw.set_ylim(0, 11)
 
-metrics = {"packets": 0, "retrans": 1, "loss(%)": 2, "frags": 3, \
-		   "frames": 4, "bytes": 5, "time1(ms)": 6, "time2(ms)": 7}
+				j += 1
+			i += 1
+			j = 0
+		plt.show()
 
-
-f, axes = plt.subplots(4, 2, sharex=True)
-
-for axe in axes:
-	for sz in sizes:
-		data = []
-		for rsl in db.select(dbname, intvl, rx, -1, sz):
-			if rsl[4] is not None:
-				sample = rsl[4][:,index].astype(np.float)
-				if (rsl[4].shape[0] != 10):
-					func = np.mean(sample) * 1.2 * 10 / rsl[4].shape[0]
-				else:
-					func = np.mean(sample)
-				data.append([rsl[2], np.mean(sample), np.std(sample), \
-							np.amin(sample), np.amax(sample), func, ])
-			else:
-				data.append([rsl[2], np.nan, np.nan, np.nan, np.nan])
-
-		data.sort(key=lambda row: row[0])
-		data = np.array(data)
-
-		if metric == "func":
-			plt.plot(data[:,0], data[:,5], "-o", label="size {}".format(sz))
-		else:
-#			plt.errorbar(data[:,0], data[:,1], data[:,2], fmt=None)
-			plt.plot(data[:,0], data[:,1], "-o", label="size {}".format(sz))
-
-
-
-
-for metric in metrics:
-	index = metrics.index(metric)
-	plt.subplot(4, 2, index + 1)
-
-	for sz in sizes:
-		data = []
-		for rsl in db.select(dbname, rx, -1, sz):
-			if rsl[3] is not None:
-				tmp = rsl[3].shape
-				sample = rsl[3][:,index].astype(np.float)
-				if (tmp[0] != 10):
-					func = np.mean(sample) * 1.2 * 10 / tmp[0]
-				else:
-					func = np.mean(sample)
-				data.append([rsl[1], np.mean(sample), np.std(sample), \
-							np.amin(sample), np.amax(sample), func])
-			else:
-				data.append([rsl[1], np.nan, np.nan, np.nan, np.nan])
-
-		data.sort(key=lambda row: row[0])
-		data = np.array(data)
-
-		if metric == "func":
-			plt.plot(data[:,0], data[:,5], "-o", label="size {}".format(sz))
-		else:
-#			plt.errorbar(data[:,0], data[:,1], data[:,2], fmt=None)
-			plt.plot(data[:,0], data[:,1], "-o", label="size {}".format(sz))
-
-	plt.xticks(data[:,0])
-	plt.xlabel("TPDU (bytes)")
-	plt.ylabel(metric)
-#	plt.legend()
+	def plot2(self, datasize=1024):
+		dic = self.db.get_colvals()
+		tfcintvls = dic["tfcintvl"]
+		rxratios = dic["rxratio"]
+		if not tfcintvls or not rxratios:
+			raise ValueError("Data is not complete yet.")
 
 
-plt.show()
+		for tfcintvl in tfcintvls:
+			for rxratio in rxratios:
+				for row in self.db.retrieve_data(tfcintvl, rxratio, -1, datasize):
+					if row[2] == 0: 
+						continue
+					print "{}_{}_{}: ".format(tfcintvl, rxratio, row[2])
+					if row[4] is not None:
+						x = row[4][:, 1].astype(np.float)
+						y = row[4][:, 6].astype(np.float)
+#						print "\t", x
+#						print "\t", y 
+						try:
+							coef = np.polyfit(x, y, 1)
+						except ValueError as e:
+							if np.allclose(x, np.zeros(x.shape)):
+								coef = [0, np.mean(y)]
+							else:
+								raise e
+						print "\t", coef
+
+
+		return
+
+		i, j = 0, 0
+		fig, axes = plt.subplots(len(tfcintvls), len(rxratios))
+		fig.suptitle("Fig: Time vs Retrans")
+		for tfcintvl in tfcintvls:
+			for rxratio in rxratios:
+				ax = axes[i][j]
+
+				for row in self.db.retrieve_data(tfcintvl, rxratio, -1, datasize):
+					if row[4] is not None:
+						x = row[4][:, 1]
+						y = row[4][:, 6]
+					else:
+						x = []
+						y = []
+					ax.plot(x, y, "o")
+				
+				ax.set_title("tfcintvl={} rxratio={}".format(tfcintvl, rxratio))
+
+				j += 1
+			i += 1
+			j = 0
+		plt.show()

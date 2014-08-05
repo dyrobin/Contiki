@@ -14,7 +14,7 @@ for intvl in ${intvl_list}; do
     for rx in ${rx_list}; do
         for tpdu in ${tpdu_list} ; do
             for data in ${data_list}; do
-                sh run.sh -i ${intvl} -r ${rx} -t ${tpdu} -s ${data} sims
+                sh run.sh -i ${intvl} -r ${rx} -t ${tpdu} -s ${data} sims_new
             done
         done
     done

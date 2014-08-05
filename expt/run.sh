@@ -7,7 +7,7 @@
 print_usage() {
     echo "Usage: $0 [-c contiki_dir] [-i traffic_interval]"
     echo "       [-r success_ratio_rx] [-t tpdu_size]"
-    echo "       [-s data_size] output_dir"
+    echo "       [-s data_size] [-g] output_dir"
 }
 
 print_invalid_opt() {
@@ -16,19 +16,19 @@ print_invalid_opt() {
 
 # default config values
 contikidir=`cd .. && pwd`
-
 tfcintvl=0
 rxratio=100
 tpdusize=65
 datasize=1024
+nogui="true"
 
 # get opts to change config values
-while getopts c:i:r:t:s: flag; do
+while getopts c:i:r:t:s:g flag; do
     case ${flag} in
         c)  if [ -d ${OPTARG} ] && 
                echo `cd ${OPTARG} && pwd` | grep -q "contiki$"; then
                 contikidir=`cd ${OPTARG} && pwd`
-            else
+            else 
                 print_invalid_opt "is not a contiki directory"
                 exit 1
             fi
@@ -60,6 +60,8 @@ while getopts c:i:r:t:s: flag; do
                 print_invalid_opt "is not an integer"
                 exit 1
             fi
+            ;;
+        g)  nogui="false"
             ;;
         ?)  print_usage
             exit 1
@@ -109,27 +111,32 @@ sed -e "s/\(<success_ratio_rx>\).*\(<\/success_ratio_rx>\)/\1${rxratio_f}\2/" \
 
 
 # run test
-STIME=`date +%s`
-echo -n "Running ${prefix} ... "
+if [ ${nogui} = "true" ]; then
+    echo -n "Running ${prefix} ... "
 
-java -mx1536m -jar ${contikidir}/tools/cooja/dist/cooja.jar \
-     -nogui=${outputdir}/${cscfile} -contiki=${contikidir} 1>/dev/null
+    STIME=`date +%s`
+    java -mx1536m -jar ${contikidir}/tools/cooja/dist/cooja.jar \
+         -nogui=${outputdir}/${cscfile} -contiki=${contikidir} 1>/dev/null
+    ETIME=`date +%s`
 
-if [ -f "COOJA.testlog" ] && grep -q "TEST OK" COOJA.testlog; then
-    echo -n "OK. "
-    mv COOJA.testlog ${outputdir}/${logfile}
-else
-    echo -n "Failed. "
-    if [ -f "COOJA.testlog" ]; then
+    if [ -f "COOJA.testlog" ] && grep -q "TEST OK" COOJA.testlog; then
+        echo -n "OK. "
         mv COOJA.testlog ${outputdir}/${logfile}
-    fi
+    else
+        echo -n "Failed. "
+        if [ -f "COOJA.testlog" ]; then
+            mv COOJA.testlog ${outputdir}/${logfile}
+        fi
 
-    if [ -f "COOJA.log" ]; then
-        echo "-- OUTPUT LOG --" >> ${outputdir}/${logfile}
-        tail -20 COOJA.log >> ${outputdir}/${logfile}
+        if [ -f "COOJA.log" ]; then
+            echo "-- OUTPUT LOG --" >> ${outputdir}/${logfile}
+            tail -20 COOJA.log >> ${outputdir}/${logfile}
+        fi
     fi
+    rm -f COOJA.log
+
+    echo "Duration: `date -u -d @$((${ETIME} - ${STIME})) +%H:%M:%S`"
+else
+    java -mx1536m -jar ${contikidir}/tools/cooja/dist/cooja.jar \
+         -quickstart=${outputdir}/${cscfile} -contiki=${contikidir}
 fi
-rm -f COOJA.log
-
-ETIME=`date +%s`
-echo "Duration: `date -u -d @$((${ETIME} - ${STIME})) +%H:%M:%S`"
