@@ -12,7 +12,7 @@ class XprmntsDB:
     and accessed by sqlite3 DB-API. The database contains only one table 
     (xprmnts) whose schema is as follows:
         tfcintvl | rxratio | tpdusize | datasize | exprdata
-    The first four columns form a primary key and the type of theirs is integer; 
+    The first four columns form a primary key and the type of theirs is integer;
     the last column is the experiemnt data whose type is numpy.ndarray.
     """
 
@@ -58,7 +58,6 @@ class XprmntsDB:
                     datasize INTEGER NOT NULL, \
                     exprdata ndarray, \
                     PRIMARY KEY (tfcintvl, rxratio, tpdusize, datasize))")
-                conn.execute("CREATE TABLE e")
         else:
             conn = db.connect(name, detect_types=db.PARSE_DECLTYPES)
         self.conn = conn
@@ -69,26 +68,49 @@ class XprmntsDB:
         self.conn.close()
 
 
-    def load_data(self, row, overwrite=False):
-        """Load data from a tuple row. If conflict occurs and overwrite is True,
-        conflicted data will be replaced.
+    def insert_row(self, row, mode=0):
+        """Insert a row into the database. If conflict occurs, different things
+        will be done depending on the value of mode.
+            0: Ignore mode, new data will be ignored.
+            1: Replace mode, new data will replace old data.
+            2: Merge mode, new data will be merged with old data.
         """
         try:
             with self.conn:
                 self.conn.execute(
                     "INSERT INTO xprmnts VALUES (?, ?, ?, ?, ?)", row)
-        except db.Error:
-            msg = "Conflicted data: " + str(row[:-1])
-            if overwrite:
-                msg += " is going to be replaced."
+        except db.IntegrityError:
+            # handle conflict issues
+            msg = "Conflicted: new " + str(row[:-1])
+            if mode == 0:
+                msg += " was ignored."
+            elif mode == 1:
                 with self.conn:
                     self.conn.execute(
                         "REPLACE INTO xprmnts VALUES (?, ?, ?, ?, ?)", row)
+                msg += " replaced old one."
+            elif mode == 2:
+                old = self.get_data(row[0], row[1], row[2], row[3])[0][4]
+                new = row[4]
+                # handle None specifically
+                if old is not None:
+                    if new is None:
+                        new = old
+                    else:
+                        new = np.concatenate((old, new))
+
+                row = row[0:4] + (new, )
+                with self.conn:
+                    self.conn.execute(
+                        "REPLACE INTO xprmnts VALUES (?, ?, ?, ?, ?)", row)
+                msg += " was merged with old one."
+            else:
+                msg += " was ignored (unknown mode)."
             print msg
 
 
-    def retrieve_data(self, tfcintvl=-1, rxratio=-1, tpdusize=-1, datasize=-1):
-        """Retrieve data by the value of columns. If the value is -1, all values
+    def get_data(self, tfcintvl=-1, rxratio=-1, tpdusize=-1, datasize=-1):
+        """Get data by the value of columns. If the value is -1, all values
         of that column will be retrieved.
         """
         # form sql query according to arguments
@@ -113,9 +135,20 @@ class XprmntsDB:
         return data
 
 
+    def get_failed(self):
+        """Get failed experiments, a list of tuples (tfcintvl, rxratio, tpdusize, 
+        datasize) is returned if exists.
+        """
+        with self.conn:
+            c = self.conn.cursor()
+            c.execute("SELECT * FROM xprmnts WHERE exprdata IS NULL")
+            data = c.fetchall()
+        return data
+
+
     def print_data(self, tfcintvl=-1, rxratio=-1, tpdusize=-1, datasize=-1):
         """Print data retrieved by the value of columns."""
-        data = self.retrieve_data(tfcintvl, rxratio, tpdusize, datasize)
+        data = self.get_data(tfcintvl, rxratio, tpdusize, datasize)
         if data:
             for row in data:
                 print row[0:4]
@@ -128,7 +161,7 @@ class XprmntsDB:
         """Get all possible values for columns that form primary key. It returns
         a dictionary that contains lists of values of different columns.
         """
-        primary_keys = [ row[0:4] for row in self.retrieve_data() ]
+        primary_keys = [ row[0:4] for row in self.get_data() ]
         if primary_keys:
             tfcintvls, rxratios, tpdusizes, datasizes = zip(*primary_keys)
             return { "tfcintvl": sorted(set(tfcintvls)), 
@@ -142,10 +175,11 @@ class XprmntsDB:
                      "datasize": [] }
 
 
-    def load_data_from_file(self, path, overwrite=False):
-        """Load data from a file specifid by path. The name of file must match
-        following regular expression: "(\d+_){4}.+\.log" 
-        Conflicted data will be replaced if overwirte is True.
+    def load_data_from_file(self, path, mode=0, dryrun=True):
+        """Load data from a file specifid by path. It returns True if 
+        successful. The name of file must match following regular expression: 
+        "(\d+_){4}.+\.log" Conflicted data will be handled depending on the 
+        value of mode. Data will be printed if dryrun is True.
         """
         if not os.path.isfile(path):
             raise ValueError("'{}' is not a file.".format(path))
@@ -176,24 +210,34 @@ class XprmntsDB:
                         metrics.extend([tmp[0], tmp[1].strip("()")])
 
                         exprdata.append(metrics)
-                    elif line.split(" ... ")[-1].startswith("Failed"):
-                        exprdata.append([])
                     else:
-                        raise ValueError("'OK' or 'Failed' is expected in '{}'"\
-                                        .format(line.strip()))
-        row = (tfcintvl, rxratio, tpdusize, datasize, np.array(exprdata))
-        self.load_data(row, overwrite)
+                        exprdata.append(["NaN"] * 8)
+        if exprdata:
+            row = (tfcintvl, rxratio, tpdusize, datasize, np.array(exprdata))
+        else:
+            row = (tfcintvl, rxratio, tpdusize, datasize, None)
+        
+        if dryrun:
+            print "Data in db (old):", 
+            self.print_data(row[0], row[1], row[2], row[3])
+            print "Data in file (new):",  
+            if row[4] is not None:
+                print row[0:4]
+                print "\t", str(row[4]).replace("\n", "\n\t")
+            else:
+                print None
+        else:
+            self.insert_row(row, mode)
 
 
-    def load_data_from_directory(self, path, pattern=None, overwrite=False):
+    def load_data_from_directory(self, path, mode=0, pattern=None):
         """Load data from files within a directory specifid by path. The files 
         can also be filtered by pattern which is a regular expression. 
-        Conflicted data will be replaced if overwirte is True.
+        Conflicted data will be handled depending on the value of mode.
         """
         if not os.path.isdir(path):
             raise ValueError("'{}' is not a directory.".format(path))
 
-        errfiles = []
         files = [f for f in os.listdir(path)
                     if os.path.isfile(os.path.join(path, f)) and 
                         f.endswith(".log")]
@@ -201,19 +245,8 @@ class XprmntsDB:
             files = filter(lambda x: re.search(pattern, x), files)
 
         for file in files:
-            try:
-                self.load_data_from_file(os.path.join(path, file), overwrite)
-            except ValueError as e:
-                errfiles.append(file)
-                print "Error: {}".format(e)
-                print "{} -> Failed.\n".format(file)
-            else:
-                print "{} -> OK.\n".format(file)
-        
-        print "Stat: {} of {} files failed, which are: "\
-              .format(len(errfiles), len(files))
-        for errfile in errfiles:
-            print "  ", errfile
+            self.load_data_from_file(os.path.join(path, file), mode, False)
+            print "{} -> Done.".format(file)
 
 # For test
 if __name__ == "__main__":
@@ -233,20 +266,20 @@ if __name__ == "__main__":
 
     xdb = XprmntsDB("test.db")
     for row in data:
-            xdb.load_data(row)
+            xdb.insert_row(row)
             # test exception
-            xdb.load_data(row)
+            xdb.insert_row(row)
 
     print "*******************"
-    for row in xdb.retrieve_data():
+    for row in xdb.get_data():
         print row
 
     print "*******************"
-    for row in xdb.retrieve_data(-1, 2, -1, 0):
+    for row in xdb.get_data(-1, 2, -1, 0):
         print row
 
     print "*******************"
-    for row in xdb.retrieve_data(-1, -1, -1, 0):
+    for row in xdb.get_data(-1, -1, -1, 0):
         print row
 
     os.remove("test.db")

@@ -1517,11 +1517,14 @@ output(const uip_lladdr_t *localdest)
   framer_hdrlen = 21;
 #endif /* USE_FRAMER_HDRLEN */
   
+  printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) ? PHY_MAX_PAYLOAD(%u) - framer_hdrlen(%d) - packetbuf_hdr_len(%u)\n", 
+    uip_len, uncomp_hdr_len, PHY_MAX_PAYLOAD, framer_hdrlen, packetbuf_hdr_len);
+
   if((int)uip_len - (int)uncomp_hdr_len > (int)PHY_MAX_PAYLOAD - framer_hdrlen - (int)packetbuf_hdr_len) {
 
 #if PMPD_ENABLED == 1
-//    printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > PHY_MAX_PAYLOAD(%u) - framer_hdrlen(%d) - packetbuf_hdr_len(%u)\n", 
-//          uip_len, uncomp_hdr_len, PHY_MAX_PAYLOAD, framer_hdrlen ,packetbuf_hdr_len);
+    printf("sicslowpan: uip_len(%u) - uncomp_hdr_len(%u) > PHY_MAX_PAYLOAD(%u) - framer_hdrlen(%d) - packetbuf_hdr_len(%u)\n", 
+          uip_len, uncomp_hdr_len, PHY_MAX_PAYLOAD, framer_hdrlen, packetbuf_hdr_len);
     uint8_t extra_hdr, max_payload;
     if (UIP_IP_BUF->proto == UIP_PROTO_HBHO) {
       struct uip_ext_hdr *hbho_buf = (struct uip_ext_hdr *)&uip_buf[UIP_LLH_LEN + UIP_IPH_LEN];
@@ -1538,7 +1541,7 @@ output(const uip_lladdr_t *localdest)
 
     max_payload = PHY_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len - extra_hdr;
 
-//    printf("sicslowpan: max_payload(%u)\n", max_payload);
+    printf("sicslowpan: extra_hdr(%u) max_payload(%u)\n", extra_hdr, max_payload);
 
     if (uip_ds6_is_my_addr(&UIP_IP_BUF->srcipaddr)) {
 //            printf("sicslowpan: PMPD update max_payload locally \n");
@@ -1588,7 +1591,7 @@ output(const uip_lladdr_t *localdest)
     packetbuf_hdr_len += SICSLOWPAN_FRAG1_HDR_LEN;
     packetbuf_payload_len = (PHY_MAX_PAYLOAD - framer_hdrlen - packetbuf_hdr_len) & 0xfffffff8;
     PRINTFO("(len %d, tag %d)\n", packetbuf_payload_len, my_tag);
-//    printf("(len %d, tag %d, packetbuf_hdr_len %d)\n", packetbuf_payload_len, my_tag, packetbuf_hdr_len);
+    printf("FN1 (len %d, tag %d, packetbuf_hdr_len %d)\n", packetbuf_payload_len, my_tag, packetbuf_hdr_len);
     memcpy(packetbuf_ptr + packetbuf_hdr_len,
            (uint8_t *)UIP_IP_BUF + uncomp_hdr_len, packetbuf_payload_len);
     packetbuf_set_datalen(packetbuf_payload_len + packetbuf_hdr_len);
@@ -1668,8 +1671,8 @@ output(const uip_lladdr_t *localdest)
       }
       PRINTFO("(offset %d, len %d, tag %d)\n",
              processed_ip_out_len >> 3, packetbuf_payload_len, my_tag);
-//      printf("(offset %d, len %d, tag %d, packetbuf_hdr_len %d)\n",
-//             processed_ip_out_len >> 3, packetbuf_payload_len, my_tag, packetbuf_hdr_len);
+      printf("FGN (offset %d, len %d, tag %d, packetbuf_hdr_len %d)\n",
+             processed_ip_out_len >> 3, packetbuf_payload_len, my_tag, packetbuf_hdr_len);
              
       memcpy(packetbuf_ptr + packetbuf_hdr_len,
              (uint8_t *)UIP_IP_BUF + processed_ip_out_len, packetbuf_payload_len);
