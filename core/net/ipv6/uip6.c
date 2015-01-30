@@ -1,16 +1,3 @@
-/**
- * \addtogroup uip6
- * @{
- */
-
-/**
- * \file
- *         The uIP TCP/IPv6 stack code.
- *
- * \author Adam Dunkels <adam@sics.se>
- * \author Julien Abeille <jabeille@cisco.com> (IPv6 related code)
- * \author Mathilde Durvy <mdurvy@cisco.com> (IPv6 related code)
- */
 /*
  * Copyright (c) 2001-2003, Adam Dunkels.
  * All rights reserved.
@@ -44,6 +31,20 @@
  *
  */
 
+/**
+ * \file
+ *         The uIP TCP/IPv6 stack code.
+ *
+ * \author Adam Dunkels <adam@sics.se>
+ * \author Julien Abeille <jabeille@cisco.com> (IPv6 related code)
+ * \author Mathilde Durvy <mdurvy@cisco.com> (IPv6 related code)
+ */
+
+/**
+ * \addtogroup uip6
+ * @{
+ */
+
 /*
  * uIP is a small implementation of the IP, UDP and TCP protocols (as
  * well as some basic ICMP stuff). The implementation couples the IP,
@@ -75,10 +76,10 @@
 #include "net/ipv6/uip-icmp6.h"
 #include "net/ipv6/uip-nd6.h"
 #include "net/ipv6/uip-ds6.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
 
 #include <string.h>
 
-#if UIP_CONF_IPV6
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
@@ -410,6 +411,8 @@ uip_init(void)
 {
    
   uip_ds6_init();
+  uip_icmp6_init();
+  uip_nd6_init();
 
 #if UIP_TCP
   for(c = 0; c < UIP_LISTENPORTS; ++c) {
@@ -429,6 +432,10 @@ uip_init(void)
     uip_udp_conns[c].lport = 0;
   }
 #endif /* UIP_UDP */
+
+#if UIP_CONF_IPV6_MULTICAST
+  UIP_MCAST6.init();
+#endif
 }
 /*---------------------------------------------------------------------------*/
 #if UIP_TCP && UIP_ACTIVE_OPEN
@@ -1151,6 +1158,28 @@ uip_process(uint8_t flag)
     }
   }
 
+  /*
+   * Process Packets with a routable multicast destination:
+   * - We invoke the multicast engine and let it do its thing
+   *   (cache, forward etc).
+   * - We never execute the datagram forwarding logic in this file here. When
+   *   the engine returns, forwarding has been handled if and as required.
+   * - Depending on the return value, we either discard or deliver up the stack
+   *
+   * All multicast engines must hook in here. After this function returns, we
+   * expect UIP_BUF to be unmodified
+   */
+#if UIP_CONF_IPV6_MULTICAST
+  if(uip_is_addr_mcast_routable(&UIP_IP_BUF->destipaddr)) {
+    if(UIP_MCAST6.in() == UIP_MCAST6_ACCEPT) {
+      /* Deliver up the stack */
+      goto process;
+    } else {
+      /* Don't deliver up the stack */
+      goto drop;
+    }
+  }
+#endif /* UIP_IPV6_CONF_MULTICAST */
 
   /* TBD Some Parameter problem messages */
   if(!uip_ds6_is_my_addr(&UIP_IP_BUF->destipaddr) &&
@@ -1177,7 +1206,11 @@ uip_process(uint8_t flag)
       }
 
 #if UIP_CONF_IPV6_RPL
-      rpl_update_header_empty();
+      if(rpl_update_header_empty()) {
+        /* Packet can not be forwarded */
+        PRINTF("RPL Forward Option Error\n");
+        goto drop;
+      }
 #endif /* UIP_CONF_IPV6_RPL */
 
       UIP_IP_BUF->ttl = UIP_IP_BUF->ttl - 1;
@@ -1219,6 +1252,10 @@ uip_process(uint8_t flag)
   uip_ext_len = 0;
   uip_ext_bitmap = 0;
 #endif /* UIP_CONF_ROUTER */
+
+#if UIP_CONF_IPV6_MULTICAST
+  process:
+#endif
 
   while(1) {
     switch(*uip_next_hdr){
@@ -1389,61 +1426,17 @@ uip_process(uint8_t flag)
   UIP_ICMP6_APPCALL(UIP_ICMP_BUF->type);
 #endif /*UIP_CONF_ICMP6*/
 
-  switch(UIP_ICMP_BUF->type) {
-    case ICMP6_NS:
-#if UIP_ND6_SEND_NA
-      uip_nd6_ns_input();
-#else /* UIP_ND6_SEND_NA */
-      UIP_STAT(++uip_stat.icmp.drop);
-      uip_len = 0;
-#endif /* UIP_ND6_SEND_NA */
-      break;
-    case ICMP6_NA:
-#if UIP_ND6_SEND_NA
-      uip_nd6_na_input();
-#else /* UIP_ND6_SEND_NA */
-      UIP_STAT(++uip_stat.icmp.drop);
-      uip_len = 0;
-#endif /* UIP_ND6_SEND_NA */
-      break;
-    case ICMP6_RS:
-#if UIP_CONF_ROUTER && UIP_ND6_SEND_RA
-    uip_nd6_rs_input();
-#else /* UIP_CONF_ROUTER && UIP_ND6_SEND_RA */
+  /*
+   * Search generic input handlers.
+   * The handler is in charge of setting uip_len to 0
+   */
+  if(uip_icmp6_input(UIP_ICMP_BUF->type,
+                     UIP_ICMP_BUF->icode) == UIP_ICMP6_INPUT_ERROR) {
+    PRINTF("Unknown ICMPv6 message type/code %d\n", UIP_ICMP_BUF->type);
     UIP_STAT(++uip_stat.icmp.drop);
+    UIP_STAT(++uip_stat.icmp.typeerr);
+    UIP_LOG("icmp6: unknown ICMPv6 message.");
     uip_len = 0;
-#endif /* UIP_CONF_ROUTER && UIP_ND6_SEND_RA */
-    break;
-  case ICMP6_RA:
-#if UIP_CONF_ROUTER
-    UIP_STAT(++uip_stat.icmp.drop);
-    uip_len = 0;
-#else /* UIP_CONF_ROUTER */
-    uip_nd6_ra_input();
-#endif /* UIP_CONF_ROUTER */
-    break;
-#if UIP_CONF_IPV6_RPL
-  case ICMP6_RPL:
-    uip_rpl_input();
-    break;
-#endif /* UIP_CONF_IPV6_RPL */
-    case ICMP6_ECHO_REQUEST:
-      uip_icmp6_echo_request_input();
-      break;
-    case ICMP6_ECHO_REPLY:
-      /** Call echo reply input function. */
-      uip_icmp6_echo_reply_input();
-      PRINTF("Received an icmp6 echo reply\n");
-      UIP_STAT(++uip_stat.icmp.recv);
-      uip_len = 0;
-      break;
-    default:
-      PRINTF("Unknown icmp6 message type %d\n", UIP_ICMP_BUF->type);
-      UIP_STAT(++uip_stat.icmp.drop);
-      UIP_STAT(++uip_stat.icmp.typeerr);
-      UIP_LOG("icmp6: unknown ICMP message.");
-      uip_len = 0;
-      break;
   }
   
   if(uip_len > 0) {
@@ -1558,10 +1551,6 @@ uip_process(uint8_t flag)
 
   uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];
 
-#if UIP_CONF_IPV6_RPL
-  rpl_insert_header();
-#endif /* UIP_CONF_IPV6_RPL */
-
 #if UIP_UDP_CHECKSUMS
   /* Calculate UDP checksum. */
   UIP_UDP_BUF->udpchksum = ~(uip_udpchksum());
@@ -1569,6 +1558,11 @@ uip_process(uint8_t flag)
     UIP_UDP_BUF->udpchksum = 0xffff;
   }
 #endif /* UIP_UDP_CHECKSUMS */
+
+#if UIP_CONF_IPV6_RPL
+  rpl_insert_header();
+#endif /* UIP_CONF_IPV6_RPL */
+
   UIP_STAT(++uip_stat.udp.sent);
   goto ip_send_nolen;
 #endif /* UIP_UDP */
@@ -2245,8 +2239,6 @@ uip_process(uint8_t flag)
   UIP_TCP_BUF->seqno[2] = uip_connr->snd_nxt[2];
   UIP_TCP_BUF->seqno[3] = uip_connr->snd_nxt[3];
 
-  UIP_IP_BUF->proto = UIP_PROTO_TCP;
-
   UIP_TCP_BUF->srcport  = uip_connr->lport;
   UIP_TCP_BUF->destport = uip_connr->rport;
 
@@ -2268,6 +2260,8 @@ uip_process(uint8_t flag)
   }
 
  tcp_send_noconn:
+  UIP_IP_BUF->proto = UIP_PROTO_TCP;
+
   UIP_IP_BUF->ttl = uip_ds6_if.cur_hop_limit;
   UIP_IP_BUF->len[0] = ((uip_len - UIP_IPH_LEN) >> 8);
   UIP_IP_BUF->len[1] = ((uip_len - UIP_IPH_LEN) & 0xff);
@@ -2342,4 +2336,3 @@ uip_send(const void *data, int len)
 }
 /*---------------------------------------------------------------------------*/
 /** @} */
-#endif /* UIP_CONF_IPV6 */

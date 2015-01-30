@@ -1,8 +1,3 @@
-/**
- * \addtogroup uip6
- * @{
- */
-
 /*
  * Copyright (c) 2013, Swedish Institute of Computer Science.
  * All rights reserved.
@@ -41,6 +36,11 @@
  * \author Julien Abeille <jabeille@cisco.com>
  * \author Simon Duquennoy <simonduq@sics.se>
  *
+ */
+
+/**
+ * \addtogroup uip6
+ * @{
  */
 
 #ifndef UIP_DS6_NEIGHBOR_H_
@@ -108,3 +108,4 @@ int uip_ds6_nbr_num(void);
 uip_ds6_nbr_t *uip_ds6_get_least_lifetime_neighbor(void);
 
 #endif /* UIP_DS6_NEIGHBOR_H_ */
+/** @} */
