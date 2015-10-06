@@ -29,13 +29,13 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * \addtogroup platform
+ * \addtogroup cc2538-platforms
  * @{
  *
- * \defgroup cc2538 The cc2538 Development Kit platform
+ * \defgroup cc2538dk The cc2538 Development Kit platform
  *
- * The cc2538DK is the new platform by Texas Instruments, based on the
- * cc2530 SoC with an ARM Cortex-M3 core.
+ * The cc2538DK is a platform by Texas Instruments, based on the
+ * cc2538 SoC with an ARM Cortex-M3 core.
  * @{
  *
  * \file
@@ -43,6 +43,7 @@
  */
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
+#include "dev/adc.h"
 #include "dev/leds.h"
 #include "dev/sys-ctrl.h"
 #include "dev/scb.h"
@@ -207,6 +208,8 @@ main(void)
   queuebuf_init();
   process_start(&tcpip_process, NULL);
 #endif /* NETSTACK_CONF_WITH_IPV6 */
+
+  adc_init();
 
   process_start(&sensors_process, NULL);
 

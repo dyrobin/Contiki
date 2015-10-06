@@ -1336,11 +1336,6 @@ send_packet(linkaddr_t *dest)
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER,(void*)&uip_lladdr);
 #endif
 
-  /* Force acknowledge from sender (test hardware autoacks) */
-#if SICSLOWPAN_CONF_ACK_ALL
-    packetbuf_set_attr(PACKETBUF_ATTR_RELIABLE, 1);
-#endif
-
   /* Provide a callback function to receive the result of
      a packet transmission. */
   NETSTACK_LLSEC.send(&packet_sent, NULL);
@@ -1388,6 +1383,7 @@ output(const uip_lladdr_t *localdest)
     set_packet_attrs();
   }
 
+#if PACKETBUF_WITH_PACKET_TYPE
 #define TCP_FIN 0x01
 #define TCP_ACK 0x10
 #define TCP_CTL 0x3f
@@ -1402,6 +1398,7 @@ output(const uip_lladdr_t *localdest)
     packetbuf_set_attr(PACKETBUF_ATTR_PACKET_TYPE,
                        PACKETBUF_ATTR_PACKET_TYPE_STREAM_END);
   }
+#endif
 
   /*
    * The destination address will be tagged to each outbound
@@ -1458,7 +1455,7 @@ output(const uip_lladdr_t *localdest)
      * IPv6/HC1/HC06/HC_UDP dispatchs/headers.
      * The following fragments contain only the fragn dispatch.
      */
-    int estimated_fragments = ((int)uip_len) / ((int)MAC_MAX_PAYLOAD - SICSLOWPAN_FRAGN_HDR_LEN) + 1;
+    int estimated_fragments = ((int)uip_len) / (max_payload - SICSLOWPAN_FRAGN_HDR_LEN) + 1;
     int freebuf = queuebuf_numfree() - 1;
     PRINTFO("uip_len: %d, fragments: %d, free bufs: %d\n", uip_len, estimated_fragments, freebuf);
     if(freebuf < estimated_fragments) {

@@ -152,6 +152,7 @@ static int cc2420_send(const void *data, unsigned short len);
 
 static int cc2420_receiving_packet(void);
 static int pending_packet(void);
+static int get_cca_threshold(void);
 static int cc2420_cca(void);
 
 signed char cc2420_last_rssi;
@@ -185,6 +186,9 @@ get_value(radio_param_t param, radio_value_t *value)
         break;
       }
     }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CCA_THRESHOLD:
+    *value = get_cca_threshold() + RSSI_OFFSET;
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RSSI:
     /* Return the RSSI value in dBm */
@@ -240,6 +244,9 @@ set_value(radio_param_t param, radio_value_t value)
       }
     }
     cc2420_set_txpower(output_power[i - 1].config);
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CCA_THRESHOLD:
+    cc2420_set_cca_threshold(value - RSSI_OFFSET);
     return RADIO_RESULT_OK;
   default:
     return RADIO_RESULT_NOT_SUPPORTED;
@@ -651,11 +658,13 @@ cc2420_transmit(unsigned short payload_len)
       {
         rtimer_clock_t sfd_timestamp;
         sfd_timestamp = cc2420_sfd_start_time;
+#if PACKETBUF_WITH_PACKET_TYPE
         if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) ==
            PACKETBUF_ATTR_PACKET_TYPE_TIMESTAMP) {
           /* Write timestamp to last two bytes of packet in TXFIFO. */
           write_ram((uint8_t *) &sfd_timestamp, CC2420RAM_TXFIFO + payload_len - 1, 2, WRITE_RAM_IN_ORDER);
         }
+#endif
       }
 
       if(!(get_status() & BV(CC2420_TX_ACTIVE))) {
@@ -1031,6 +1040,17 @@ static int
 pending_packet(void)
 {
   return CC2420_FIFOP_IS_1;
+}
+/*---------------------------------------------------------------------------*/
+static int
+get_cca_threshold(void)
+{
+  int value;
+
+  GET_LOCK();
+  value = (int8_t)(getreg(CC2420_RSSI) >> 8);
+  RELEASE_LOCK();
+  return value;
 }
 /*---------------------------------------------------------------------------*/
 void

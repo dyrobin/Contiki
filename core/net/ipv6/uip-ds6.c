@@ -29,17 +29,17 @@
  */
 
 /**
- * \file
- *         IPv6 data structures handling functions.
- *         Comprises part of the Neighbor discovery (RFC 4861)
- *         and auto configuration (RFC 4862) state machines.
- * \author Mathilde Durvy <mdurvy@cisco.com>
- * \author Julien Abeille <jabeille@cisco.com>
+ * \addtogroup uip6
+ * @{
  */
 
 /**
- * \addtogroup uip6
- * @{
+ * \file
+ *    IPv6 data structure manipulation.
+ *    Comprises part of the Neighbor discovery (RFC 4861)
+ *    and auto configuration (RFC 4862) state machines.
+ * \author Mathilde Durvy <mdurvy@cisco.com>
+ * \author Julien Abeille <jabeille@cisco.com>
  */
 
 #include <string.h>
@@ -275,6 +275,7 @@ uip_ds6_prefix_add(uip_ipaddr_t *ipaddr, uint8_t ipaddrlen,
     PRINTF("Adding prefix ");
     PRINT6ADDR(&locprefix->ipaddr);
     PRINTF("length %u, vlifetime%lu\n", ipaddrlen, interval);
+    return locprefix;
   }
   return NULL;
 }
